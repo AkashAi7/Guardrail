@@ -7,51 +7,76 @@ import { GovernanceRule } from './types';
 export class GovernanceLoader {
   private rules: GovernanceRule[] = [];
   private systemPrompt: string = '';
+  private governancePaths: string[];
 
-  constructor(private governancePath: string) {}
+  constructor(governancePath: string, customPaths: string[] = []) {
+    // Primary governance path plus any custom paths
+    this.governancePaths = [governancePath, ...customPaths];
+  }
 
   /**
    * Load all governance markdown files and build system prompt
    */
   async loadAll(): Promise<void> {
-    console.log(`📚 Loading governance rules from: ${this.governancePath}`);
+    console.log(`📚 Loading governance rules from ${this.governancePaths.length} location(s)`);
 
-    if (!fs.existsSync(this.governancePath)) {
-      console.warn(`⚠️  Governance path not found: ${this.governancePath}`);
-      console.warn(`   Creating default governance structure...`);
-      this.createDefaultGovernance();
-    }
+    // Load rules from each governance path
+    for (let i = 0; i < this.governancePaths.length; i++) {
+      const governancePath = this.governancePaths[i];
+      const isBuiltIn = i === 0; // First path is always built-in
+      const source = isBuiltIn ? 'built-in' : 'custom';
 
-    // Find all markdown files
-    const pattern = path.join(this.governancePath, '**/*.md').replace(/\\/g, '/');
-    const files = await glob(pattern);
+      console.log(`\n📂 Loading from ${source} path: ${governancePath}`);
 
-    console.log(`📄 Found ${files.length} governance files`);
+      if (!fs.existsSync(governancePath)) {
+        if (isBuiltIn) {
+          console.warn(`⚠️  Built-in governance path not found: ${governancePath}`);
+          console.warn(`   Creating default governance structure...`);
+          this.createDefaultGovernance(governancePath);
+        } else {
+          console.warn(`⚠️  Custom governance path not found: ${governancePath}`);
+          console.warn(`   Skipping this path...`);
+          continue;
+        }
+      }
 
-    // Load each file
-    for (const file of files) {
-      try {
-        const content = fs.readFileSync(file, 'utf-8');
-        const parsed = matter(content);
-        
-        const rule: GovernanceRule = {
-          title: parsed.data.title || path.basename(file, '.md'),
-          content: parsed.content,
-          category: this.getCategoryFromPath(file),
-          filePath: file,
-        };
+      // Find all markdown files in this path
+      const pattern = path.join(governancePath, '**/*.md').replace(/\\/g, '/');
+      const files = await glob(pattern);
 
-        this.rules.push(rule);
-        console.log(`  ✅ Loaded: ${rule.category}/${rule.title}`);
-      } catch (error) {
-        console.error(`  ❌ Failed to load ${file}:`, error);
+      console.log(`   📄 Found ${files.length} governance files`);
+
+      // Load each file
+      for (const file of files) {
+        try {
+          const content = fs.readFileSync(file, 'utf-8');
+          const parsed = matter(content);
+          
+          const rule: GovernanceRule = {
+            title: parsed.data.title || path.basename(file, '.md'),
+            content: parsed.content,
+            category: this.getCategoryFromPath(file, governancePath),
+            filePath: file,
+            source: source as 'built-in' | 'custom',
+            sourcePath: governancePath,
+          };
+
+          this.rules.push(rule);
+          console.log(`     ✅ Loaded: ${rule.category}/${rule.title} [${source}]`);
+        } catch (error) {
+          console.error(`     ❌ Failed to load ${file}:`, error);
+        }
       }
     }
 
     // Build system prompt
     this.buildSystemPrompt();
 
-    console.log(`✅ Loaded ${this.rules.length} governance rules`);
+    console.log(`\n✅ Total loaded: ${this.rules.length} governance rules`);
+    const builtInCount = this.rules.filter(r => r.source === 'built-in').length;
+    const customCount = this.rules.filter(r => r.source === 'custom').length;
+    console.log(`   - Built-in: ${builtInCount} rules`);
+    console.log(`   - Custom: ${customCount} rules`);
   }
 
   /**
@@ -153,8 +178,8 @@ export class GovernanceLoader {
   /**
    * Get category from file path
    */
-  private getCategoryFromPath(filePath: string): string {
-    const relativePath = path.relative(this.governancePath, filePath);
+  private getCategoryFromPath(filePath: string, basePath: string): string {
+    const relativePath = path.relative(basePath, filePath);
     const parts = relativePath.split(path.sep);
     
     if (parts.length > 1) {
@@ -167,7 +192,7 @@ export class GovernanceLoader {
   /**
    * Create default governance structure
    */
-  private createDefaultGovernance(): void {
+  private createDefaultGovernance(governancePath: string): void {
     const dirs = [
       'security',
       'compliance',
@@ -176,13 +201,13 @@ export class GovernanceLoader {
     ];
 
     dirs.forEach(dir => {
-      const dirPath = path.join(this.governancePath, dir);
+      const dirPath = path.join(governancePath, dir);
       if (!fs.existsSync(dirPath)) {
         fs.mkdirSync(dirPath, { recursive: true });
       }
     });
 
-    console.log(`✅ Created default governance structure`);
+    console.log(`✅ Created default governance structure at ${governancePath}`);
   }
 
   /**

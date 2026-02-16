@@ -10,7 +10,7 @@ export class GuardrailServer {
 
   constructor() {
     this.app = express();
-    this.agent = new GuardrailAgent(config.governancePath);
+    this.agent = new GuardrailAgent(config.governancePath, config.customGovernancePaths);
     this.setupMiddleware();
     this.setupRoutes();
   }
@@ -53,9 +53,36 @@ export class GuardrailServer {
         version: '1.0.0',
         config: {
           governancePath: config.governancePath,
+          customGovernancePaths: config.customGovernancePaths,
           model: config.copilotModel,
           authMethod: config.copilotAuthMethod,
         },
+      });
+    });
+
+    // List loaded governance rules
+    this.app.get('/rules', (req, res) => {
+      const rules = this.agent.getRules();
+      const summary = {
+        total: rules.length,
+        builtIn: rules.filter(r => r.source === 'built-in').length,
+        custom: rules.filter(r => r.source === 'custom').length,
+        byCategory: rules.reduce((acc, rule) => {
+          acc[rule.category] = (acc[rule.category] || 0) + 1;
+          return acc;
+        }, {} as Record<string, number>),
+      };
+
+      res.json({
+        success: true,
+        summary,
+        rules: rules.map(r => ({
+          title: r.title,
+          category: r.category,
+          source: r.source,
+          sourcePath: r.sourcePath,
+          filePath: r.filePath,
+        })),
       });
     });
 
@@ -163,12 +190,17 @@ export class GuardrailServer {
         console.log('='.repeat(60));
         console.log(`🚀 Server running on http://localhost:${config.port}`);
         console.log(`📚 Governance path: ${config.governancePath}`);
+        if (config.customGovernancePaths.length > 0) {
+          console.log(`📁 Custom governance paths:`);
+          config.customGovernancePaths.forEach(p => console.log(`   - ${p}`));
+        }
         console.log(`🤖 Copilot model: ${config.copilotModel}`);
         console.log(`🔐 Auth method: ${config.copilotAuthMethod}`);
         console.log('='.repeat(60) + '\n');
         console.log('📊 Endpoints:');
         console.log(`   GET  /health              - Health check`);
         console.log(`   GET  /info                - Service info`);
+        console.log(`   GET  /rules               - List loaded rules`);
         console.log(`   POST /analyze             - Analyze single file`);
         console.log(`   POST /analyze-batch       - Analyze multiple files`);
         console.log(`   POST /reload-governance   - Reload governance rules`);

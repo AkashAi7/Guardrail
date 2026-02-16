@@ -47,11 +47,14 @@ export interface GovernanceRule {
   content: string;
   category: string;
   filePath: string;
+  source: 'built-in' | 'custom';  // Track where the rule came from
+  sourcePath: string;  // The base directory this rule was loaded from
 }
 
 export interface ServiceConfig {
   port: number;
   governancePath: string;
+  customGovernancePaths: string[];  // Additional custom rule directories
   copilotAuthMethod: 'github' | 'byok';
   copilotModel: string;
   analysisTimeout: number;
