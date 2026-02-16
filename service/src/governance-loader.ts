@@ -176,7 +176,10 @@ export class GovernanceLoader {
   }
 
   /**
-   * Get category from file path
+   * Get category from file path relative to its base path
+   * Note: Each rule maintains its own sourcePath, so rules with the same
+   * relative path from different sources are tracked separately and their
+   * category is derived relative to their own source directory.
    */
   private getCategoryFromPath(filePath: string, basePath: string): string {
     const relativePath = path.relative(basePath, filePath);

@@ -16,7 +16,8 @@ const parseCustomPaths = (): string[] => {
   return customPathsEnv
     .split(',')
     .map(p => p.trim())
-    .filter(p => p.length > 0);
+    .filter(p => p.length > 0)
+    .map(p => path.resolve(p)); // Normalize to absolute paths
 };
 
 export const config: ServiceConfig = {

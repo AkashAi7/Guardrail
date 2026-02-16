@@ -32,10 +32,10 @@ Point the Guardrail service to this directory:
 
 ```bash
 # Set environment variable
-export CUSTOM_GOVERNANCE_PATHS=/home/runner/work/Guardrail/Guardrail/examples/custom-rules
+export CUSTOM_GOVERNANCE_PATHS=/opt/guardrail/examples/custom-rules
 
 # Or in .env file
-CUSTOM_GOVERNANCE_PATHS=/path/to/Guardrail/examples/custom-rules
+CUSTOM_GOVERNANCE_PATHS=/path/to/guardrail/examples/custom-rules
 
 # Start the service
 cd service
