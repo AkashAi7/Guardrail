@@ -1,4 +1,4 @@
-import { AnalysisRequest, AnalysisResult, Finding } from './types';
+import { AnalysisRequest, AnalysisResult, Finding, GovernanceRule } from './types';
 import { GovernanceLoader } from './governance-loader';
 import config from './config';
 import { CopilotClient, CopilotSession } from '@github/copilot-sdk';
@@ -9,8 +9,8 @@ export class GuardrailAgent {
   private copilotClient: CopilotClient;
   private isInitialized: boolean = false;
 
-  constructor(governancePath: string) {
-    this.governanceLoader = new GovernanceLoader(governancePath);
+  constructor(governancePath: string, customPaths: string[] = []) {
+    this.governanceLoader = new GovernanceLoader(governancePath, customPaths);
     
     // Initialize Copilot Client
     const clientOptions: any = {
@@ -341,6 +341,13 @@ export class GuardrailAgent {
    */
   private getLineNumber(content: string, index: number): number {
     return content.substring(0, index).split('\n').length;
+  }
+
+  /**
+   * Get all loaded rules
+   */
+  getRules(): GovernanceRule[] {
+    return this.governanceLoader.getRules();
   }
 
   /**
