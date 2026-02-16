@@ -366,6 +366,30 @@ Suggested Fix:
 3. Test with sample code
 4. Submit PR with test cases
 
+### **Bring Your Own Compliance Rules**
+
+You can now add custom compliance rules and governance policies specific to your organization:
+
+1. Create your own rules directory with markdown files
+2. Set `CUSTOM_GOVERNANCE_PATHS=/path/to/your/rules` environment variable
+3. Restart the service - your rules will be loaded alongside built-in rules
+4. See [BRING_YOUR_OWN_RULES.md](./BRING_YOUR_OWN_RULES.md) for complete guide
+
+**Example:**
+```bash
+# Add organization-specific rules
+export CUSTOM_GOVERNANCE_PATHS=/company/security-rules,/team/coding-standards
+npm run dev
+```
+
+Your custom rules are loaded from separate directories, making it easy to:
+- ✅ Maintain organization-specific compliance requirements
+- ✅ Keep custom rules in separate repositories
+- ✅ Share rules across teams
+- ✅ Update rules without modifying core system
+
+See `examples/custom-rules/` for example custom rules.
+
 ### **Rule Categories**
 - `security/` - Security vulnerabilities
 - `compliance/` - GDPR, HIPAA, SOC2, PCI-DSS
