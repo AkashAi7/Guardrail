@@ -59,8 +59,8 @@ export class GuardrailClient {
 
   async checkHealth(): Promise<boolean> {
     try {
-      const response = await this.client.get('/api/health');
-      return response.status === 200 && response.data.status === 'healthy';
+      const response = await this.client.get('/health');
+      return response.status === 200;
     } catch (error) {
       console.error('Health check failed:', error);
       return false;
@@ -68,7 +68,7 @@ export class GuardrailClient {
   }
 
   async getInfo(): Promise<ServiceInfo> {
-    const response = await this.client.get<ServiceInfo>('/api/info');
+    const response = await this.client.get<ServiceInfo>('/info');
     return response.data;
   }
 
@@ -77,10 +77,10 @@ export class GuardrailClient {
     language: string,
     filename: string
   ): Promise<AnalysisResult> {
-    const response = await this.client.post<AnalysisResult>('/api/analyze', {
-      code,
+    const response = await this.client.post<AnalysisResult>('/analyze', {
+      content: code,
       language,
-      filename
+      filePath: filename
     });
 
     return response.data;
@@ -89,11 +89,11 @@ export class GuardrailClient {
   async analyzeBatch(
     files: Array<{ code: string; language: string; filename: string }>
   ): Promise<Array<AnalysisResult & { filename: string }>> {
-    const response = await this.client.post('/api/analyze-batch', { files });
+    const response = await this.client.post('/analyze-batch', { files });
     return response.data.results;
   }
 
   async reloadGovernance(): Promise<void> {
-    await this.client.post('/api/reload-governance');
+    await this.client.post('/reload-governance');
   }
 }
