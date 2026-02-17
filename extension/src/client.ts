@@ -45,7 +45,7 @@ export class GuardrailClient {
 
     this.client = axios.create({
       baseURL: this.baseURL,
-      timeout: 30000, // 30 seconds
+      timeout: 120000, // 120 seconds - backend analysis can take 60+ seconds
       headers: {
         'Content-Type': 'application/json'
       }
