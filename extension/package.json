@@ -4,10 +4,20 @@
   "description": "Real-time intelligent code analysis powered by GitHub Copilot SDK for security, compliance, and best practices",
   "version": "0.1.0",
   "publisher": "AkashAi7",
+  "icon": "icon.png",
+  "galleryBanner": {
+    "color": "#1e1e1e",
+    "theme": "dark"
+  },
   "repository": {
     "type": "git",
     "url": "https://github.com/AkashAi7/Guardrail.git"
   },
+  "bugs": {
+    "url": "https://github.com/AkashAi7/Guardrail/issues"
+  },
+  "homepage": "https://github.com/AkashAi7/Guardrail#readme",
+  "license": "MIT",
   "engines": {
     "vscode": "^1.80.0"
   },
@@ -98,11 +108,21 @@
         },
         "codeGuardrail.severityFilter": {
           "type": "array",
-          "default": ["HIGH", "MEDIUM", "LOW", "INFO"],
+          "default": [
+            "HIGH",
+            "MEDIUM",
+            "LOW",
+            "INFO"
+          ],
           "description": "Which severity levels to display",
           "items": {
             "type": "string",
-            "enum": ["HIGH", "MEDIUM", "LOW", "INFO"]
+            "enum": [
+              "HIGH",
+              "MEDIUM",
+              "LOW",
+              "INFO"
+            ]
           }
         },
         "codeGuardrail.showInfoSeverity": {
@@ -165,11 +185,12 @@
     "@typescript-eslint/eslint-plugin": "^6.0.0",
     "@typescript-eslint/parser": "^6.0.0",
     "@vscode/test-electron": "^2.3.3",
+    "@vscode/vsce": "^2.19.0",
     "eslint": "^8.44.0",
     "glob": "^10.3.3",
     "mocha": "^10.2.0",
-    "typescript": "^5.1.6",
-    "@vscode/vsce": "^2.19.0"
+    "sharp": "^0.34.5",
+    "typescript": "^5.1.6"
   },
   "dependencies": {
     "axios": "^1.4.0"

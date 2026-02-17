@@ -1,0 +1,36 @@
+<svg width="128" height="128" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect width="128" height="128" fill="#1e1e1e" rx="16"/>
+  
+  <!-- Shield outline -->
+  <path d="M 64 20 L 90 30 L 90 60 Q 90 85 64 105 Q 38 85 38 60 L 38 30 Z" 
+        fill="none" 
+        stroke="#4CAF50" 
+        stroke-width="4"/>
+  
+  <!-- Shield fill (gradient) -->
+  <defs>
+    <linearGradient id="shieldGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#66BB6A;stop-opacity:0.3" />
+      <stop offset="100%" style="stop-color:#4CAF50;stop-opacity:0.6" />
+    </linearGradient>
+  </defs>
+  <path d="M 64 20 L 90 30 L 90 60 Q 90 85 64 105 Q 38 85 38 60 L 38 30 Z" 
+        fill="url(#shieldGrad)"/>
+  
+  <!-- Checkmark -->
+  <path d="M 52 62 L 60 72 L 76 48" 
+        stroke="#4CAF50" 
+        stroke-width="6" 
+        stroke-linecap="round" 
+        stroke-linejoin="round" 
+        fill="none"/>
+  
+  <!-- "CG" text at bottom -->
+  <text x="64" y="115" 
+        font-family="Arial, sans-serif" 
+        font-size="16" 
+        font-weight="bold" 
+        fill="#4CAF50" 
+        text-anchor="middle">G</text>
+</svg>

@@ -1,0 +1,36 @@
+# VS Code Marketplace - Files to exclude from published extension
+
+# Source files (we include compiled JS only)
+src/**
+tsconfig.json
+*.ts
+
+# Build artifacts
+*.map
+
+# Development files
+node_modules/**
+.vscode/**
+.vscode-test/**
+
+# Git
+.git/**
+.gitignore
+
+# NPM
+package-lock.json
+npm-debug.log
+yarn-error.log
+
+# Testing
+test/**
+*.test.js
+*.test.ts
+
+# Documentation (keep README.md and CHANGELOG.md)
+# docs/**
+
+# Misc
+.DS_Store
+Thumbs.db
+*.vsix
