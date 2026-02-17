@@ -2,21 +2,46 @@
 
 # Code Guardrail - Installation Script (macOS/Linux)
 # ================================================
+# GitHub-based installation with automatic setup
 
 set -e
 
-echo "🛡️  Code Guardrail Installation Script"
-echo "======================================"
-echo ""
+# Configuration
+INSTALL_DIR="${INSTALL_DIR:-$HOME/.guardrail}"
+REPO_URL="https://github.com/AkashAi7/Guardrail.git"
+BRANCH="${BRANCH:-main}"
+SERVICE_PORT=3000
 
 # Colors
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
+CYAN='\033[0;36m'
+BOLD='\033[1m'
 NC='\033[0m' # No Color
 
+echo ""
+echo -e "${CYAN}╔═══════════════════════════════════════════════════════════╗${NC}"
+echo -e "${CYAN}║                                                           ║${NC}"
+echo -e "${CYAN}║${BOLD}           GUARDRAIL INSTALLER - HYBRID EDITION            ${NC}${CYAN}║${NC}"
+echo -e "${CYAN}║                                                           ║${NC}"
+echo -e "${CYAN}║  Real-time Code Security & Compliance Analysis           ║${NC}"
+echo -e "${CYAN}║  Supports: GitHub Copilot OR Bring Your Own Key          ║${NC}"
+echo -e "${CYAN}║                                                           ║${NC}"
+echo -e "${CYAN}╚═══════════════════════════════════════════════════════════╝${NC}"
+echo ""
+
 # Check prerequisites
-echo "Checking prerequisites..."
+echo -e "${CYAN}Checking prerequisites...${NC}"
+echo ""
+
+# Check Git
+if ! command -v git &> /dev/null; then
+    echo -e "${RED}❌ Git is not installed${NC}"
+    echo "Please install Git from https://git-scm.com/"
+    exit 1
+fi
+echo -e "${GREEN}✓${NC} Git $(git --version | cut -d' ' -f3)"
 
 # Check Node.js
 if ! command -v node &> /dev/null; then
@@ -50,80 +75,130 @@ fi
 
 echo ""
 
-# Install service
-echo "📦 Installing Guardrail Service..."
-cd service
+# Clone or update repository
+echo -e "${CYAN}═══════════════════════════════════════════════${NC}"
+echo -e "${CYAN}Installing Guardrail Backend Service${NC}"
+echo -e "${CYAN}═══════════════════════════════════════════════${NC}"
+echo ""
 
-if [ -f ".env" ]; then
-    echo "  .env file already exists, skipping..."
-else
-    echo "  Creating .env file from template..."
-    cp .env.example .env
+if [ -d "$INSTALL_DIR" ]; then
+    echo -e "${YELLOW}⚠${NC}  Existing installation found at $INSTALL_DIR"
+    read -p "Remove and reinstall? (y/N): " -n 1 -r
+    echo
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+        echo "Removing existing installation..."
+        rm -rf "$INSTALL_DIR"
+        echo -e "${GREEN}✓${NC} Removed"
+    else
+        echo "Aborted."
+        exit 0
+    fi
 fi
 
-echo "  Installing dependencies..."
-npm install
+echo "Cloning Guardrail from GitHub ($BRANCH branch)..."
+git clone -b "$BRANCH" --single-branch "$REPO_URL" "$INSTALL_DIR"
+echo -e "${GREEN}✓${NC} Downloaded successfully"
+echo ""
 
-echo "  Building TypeScript..."
+# Install service
+echo "Installing backend dependencies (this may take a minute)..."
+cd "$INSTALL_DIR/service"
+
+echo "Installing backend dependencies (this may take a minute)..."
+cd "$INSTALL_DIR/service"
+
+if [ -f ".env" ]; then
+    echo -e "${YELLOW}⚠${NC}  .env file already exists, keeping existing configuration..."
+else
+    echo "Creating .env file from template..."
+    if [ -f ".env.example" ]; then
+        cp .env.example .env
+        echo -e "${GREEN}✓${NC} Created .env file"
+    else
+        echo -e "${RED}❌ .env.example not found${NC}"
+        exit 1
+    fi
+fi
+
+echo "Installing dependencies..."
+npm install --no-audit
+
+echo "Building TypeScript..."
 npm run build
 
 echo -e "${GREEN}✓${NC} Service installed successfully"
 echo ""
 
 # Install extension
-echo "📦 Installing VS Code Extension..."
-cd ../extension
+echo -e "${CYAN}═══════════════════════════════════════════════${NC}"
+echo -e "${CYAN}Installing VS Code Extension${NC}"
+echo -e "${CYAN}═══════════════════════════════════════════════${NC}"
+echo ""
 
-echo "  Installing dependencies..."
-npm install
+cd "$INSTALL_DIR/extension"
 
-echo "  Compiling TypeScript..."
+echo "Installing dependencies..."
+npm install --no-audit
+
+echo "Compiling TypeScript..."
 npm run compile
 
-echo "  Packaging extension..."
+echo "Packaging extension..."
+# Install vsce if needed
+if ! command -v vsce &> /dev/null; then
+    echo "Installing vsce..."
+    npm install -g @vscode/vsce
+fi
+
 npm run package
 
 if [ "$HAS_VSCODE" = true ]; then
-    echo "  Installing extension in VS Code..."
-    VSIX_FILE=$(ls *.vsix | head -n1)
-    code --install-extension "$VSIX_FILE" --force
-    echo -e "${GREEN}✓${NC} Extension installed successfully"
+    echo "Installing extension in VS Code..."
+    VSIX_FILE=$(ls *.vsix 2>/dev/null | head -n1)
+    if [ -n "$VSIX_FILE" ]; then
+        code --install-extension "$VSIX_FILE" --force
+        echo -e "${GREEN}✓${NC} Extension installed successfully"
+    else
+        echo -e "${RED}❌ No .vsix file found${NC}"
+    fi
 else
     echo -e "${YELLOW}⚠${NC}  Manual installation required:"
     echo "  1. Open VS Code"
     echo "  2. Go to Extensions view (Ctrl+Shift+X)"
     echo "  3. Click '...' menu → Install from VSIX"
-    echo "  4. Select: $(pwd)/$(ls *.vsix | head -n1)"
+    echo "  4. Select: $INSTALL_DIR/extension/$(ls *.vsix | head -n1)"
 fi
 
-cd ..
+cd "$INSTALL_DIR"
 
 echo ""
-echo "═══════════════════════════════════════════════"
+echo -e "${GREEN}═══════════════════════════════════════════════${NC}"
 echo -e "${GREEN}✓ Installation Complete!${NC}"
-echo "═══════════════════════════════════════════════"
+echo -e "${GREEN}═══════════════════════════════════════════════${NC}"
 echo ""
-echo "🚀 Next Steps:"
+echo -e "${CYAN}Installation Directory:${NC} $INSTALL_DIR"
+echo -e "${CYAN}Service URL:${NC} http://localhost:$SERVICE_PORT"
 echo ""
-echo "1. Start the service:"
-echo "   cd service"
+echo -e "${BOLD}🚀 Next Steps:${NC}"
+echo ""
+echo -e "${YELLOW}1. Start the service:${NC}"
+echo "   cd $INSTALL_DIR/service"
 echo "   npm start"
 echo ""
-echo "2. Open VS Code and save any file to trigger analysis"
+echo -e "${YELLOW}2. Restart VS Code${NC}"
 echo ""
-echo "3. Or manually analyze with Ctrl+Shift+G (Cmd+Shift+G on Mac)"
+echo -e "${YELLOW}3. Open any TypeScript/JavaScript file and save it${NC}"
+echo "   → Analysis will run automatically!"
 echo ""
-echo "📚 Documentation:"
-echo "  • Main README: README.md"
-echo "  • Service docs: service/README.md"
-echo "  • Extension docs: extension/README.md"
-echo "  • Governance rules: governance/README.md"
+echo -e "${CYAN}📚 Documentation:${NC}"
+echo "  • Main README: $INSTALL_DIR/README.md"
+echo "  • Governance rules: $INSTALL_DIR/governance/README.md"
 echo ""
-echo "⚙️  Configuration:"
-echo "  • Service: service/.env"
-echo "  • VS Code: File → Preferences → Settings → Code Guardrail"
+echo -e "${CYAN}⚙️  Configuration:${NC}"
+echo "  • Service: $INSTALL_DIR/service/.env"
+echo "  • VS Code: Preferences → Settings → Code Guardrail"
 echo ""
-echo "💡 Tip: The service must be running for the extension to work."
+echo -e "${CYAN}💡 Tip:${NC} The service must be running for the extension to work."
 echo "    Use 'Code Guardrail: Start Local Service' from command palette."
 echo ""
 echo "Happy coding! 🎉"

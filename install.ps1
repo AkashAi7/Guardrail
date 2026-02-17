@@ -4,16 +4,18 @@
 # Requires: PowerShell 5.1+, Node.js 18+, VS Code
 
 param(
-    [switch]$Uninstall
+    [switch]$Uninstall,
+    [string]$InstallDir = "$env:LOCALAPPDATA\Guardrail",
+    [string]$Branch = "main"
 )
 
 $ErrorActionPreference = "Stop"
 
 # Configuration
-$INSTALL_DIR = "$env:LOCALAPPDATA\Guardrail"
+$INSTALL_DIR = $InstallDir
 $SERVICE_NAME = "GuardrailService"
 $SERVICE_PORT = 3000
-$REPO_URL = "https://github.com/AkashAi7/Guardrail"
+$REPO_URL = "https://github.com/AkashAi7/Guardrail.git"
 
 function Write-Step {
     param([string]$Message)
@@ -74,27 +76,50 @@ function Install-GuardrailService {
     # Create install directory
     if (Test-Path $INSTALL_DIR) {
         Write-Info "Removing existing installation..."
-        Remove-Item $INSTALL_DIR -Recurse -Force
+        try {
+            # Stop any running processes in the directory
+            Get-Process node -ErrorAction SilentlyContinue | Where-Object { $_.Path -like "$INSTALL_DIR*" } | Stop-Process -Force
+            Start-Sleep -Seconds 2
+            Remove-Item $INSTALL_DIR -Recurse -Force -ErrorAction Stop
+        } catch {
+            Write-Error-Custom "Failed to remove existing installation. Please close all applications using Guardrail."
+            exit 1
+        }
     }
     
     New-Item -ItemType Directory -Path $INSTALL_DIR -Force | Out-Null
     Write-Success "Created directory: $INSTALL_DIR"
     
     # Clone repository
-    Write-Info "Downloading Guardrail from GitHub..."
-    git clone $REPO_URL $INSTALL_DIR 2>&1 | Out-Null
-    Write-Success "Downloaded successfully"
+    Write-Info "Downloading Guardrail from GitHub ($Branch branch)..."
+    try {
+        git clone -b $Branch --single-branch $REPO_URL $INSTALL_DIR 2>&1 | Out-Null
+        Write-Success "Downloaded successfully"
+    } catch {
+        Write-Error-Custom "Failed to clone repository. Please check your internet connection and Git installation."
+        exit 1
+    }
     
     # Install service dependencies
-    Write-Info "Installing backend dependencies..."
+    Write-Info "Installing backend dependencies (this may take a minute)..."
     Set-Location "$INSTALL_DIR\service"
-    npm install --production 2>&1 | Out-Null
-    Write-Success "Dependencies installed"
+    try {
+        npm install --no-audit 2>&1 | Out-Null
+        Write-Success "Dependencies installed"
+    } catch {
+        Write-Error-Custom "Failed to install dependencies. Check Node.js installation."
+        exit 1
+    }
     
     # Build service
     Write-Info "Building backend service..."
-    npm run build 2>&1 | Out-Null
-    Write-Success "Service built successfully"
+    try {
+        npm run build 2>&1 | Out-Null
+        Write-Success "Service built successfully"
+    } catch {
+        Write-Error-Custom "Failed to build service. Check build logs."
+        exit 1
+    }
     
     # Create .env file
     if (-not (Test-Path "$INSTALL_DIR\service\.env")) {
@@ -261,21 +286,46 @@ function Install-VSCodeExtension {
     # Build extension
     Set-Location "$INSTALL_DIR\extension"
     Write-Info "Installing extension dependencies..."
-    npm install 2>&1 | Out-Null
+    try {
+        npm install --no-audit 2>&1 | Out-Null
+    } catch {
+        Write-Error-Custom "Failed to install extension dependencies"
+        exit 1
+    }
     
     Write-Info "Compiling extension..."
-    npm run compile 2>&1 | Out-Null
+    try {
+        npm run compile 2>&1 | Out-Null
+    } catch {
+        Write-Error-Custom "Failed to compile extension"
+        exit 1
+    }
     
+    # Check if vsce is installed
     Write-Info "Packaging extension..."
-    npx @vscode/vsce package --no-dependencies 2>&1 | Out-Null
+    try {
+        # Install vsce locally if not available
+        if (-not (Get-Command vsce -ErrorAction SilentlyContinue)) {
+            npm install -g @vscode/vsce 2>&1 | Out-Null
+        }
+        npx @vscode/vsce package --no-dependencies 2>&1 | Out-Null
+    } catch {
+        Write-Error-Custom "Failed to package extension"
+        exit 1
+    }
     
     # Install extension
     $vsixFile = Get-ChildItem "*.vsix" | Select-Object -First 1
     if ($vsixFile) {
-        code --install-extension $vsixFile.FullName
-        Write-Success "Extension installed: $($vsixFile.Name)"
+        try {
+            code --install-extension $vsixFile.FullName --force 2>&1 | Out-Null
+            Write-Success "Extension installed: $($vsixFile.Name)"
+        } catch {
+            Write-Info "Automatic installation failed. You can install manually:"
+            Write-Host "  code --install-extension $($vsixFile.FullName)" -ForegroundColor Yellow
+        }
     } else {
-        Write-Error-Custom "Failed to package extension"
+        Write-Error-Custom "Failed to package extension - .vsix file not found"
     }
 }
 

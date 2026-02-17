@@ -1,103 +1,543 @@
 # Code Guardrail - Installation Guide
 
-## 🚀 Quick Install (5 minutes)
+## 🚀 Quick Install (Recommended)
 
-### Prerequisites
-- Windows/macOS/Linux
-- Node.js 18+ installed
-- VS Code installed
-- GitHub Copilot CLI installed and authenticated
+### One-Line Installation
+
+**Windows (PowerShell):**
+```powershell
+iwr -useb https://raw.githubusercontent.com/AkashAi7/Guardrail/main/install.ps1 | iex
+```
+
+**macOS / Linux:**
+```bash
+curl -fsSL https://raw.githubusercontent.com/AkashAi7/Guardrail/main/scripts/install.sh | bash
+```
+
+That's it! The installer will:
+- ✅ Check all prerequisites
+- ✅ Download and install the service
+- ✅ Build and install the VS Code extension
+- ✅ Auto-detect GitHub Copilot (or prompt for API keys)
+
+**Installation Time:** ~3-5 minutes
 
 ---
 
-## 📦 Installation Steps
+## 📋 Prerequisites
 
-### Step 1: Install Copilot CLI (If Not Already Installed)
+Before installation, ensure you have:
+
+- **Operating System:** Windows 10+, macOS 10.15+, or Linux
+- **Node.js:** Version 18 or higher ([Download](https://nodejs.org/))
+- **VS Code:** Latest version ([Download](https://code.visualstudio.com/))
+- **Git:** For cloning the repository ([Download](https://git-scm.com/))
+
+**Optional (but recommended):**
+- **GitHub Copilot:** For free LLM usage (included in Copilot subscription)
+  - OR **OpenAI API Key / Anthropic API Key:** For BYOK (Bring Your Own Key) mode
+
+---
+
+## 📦 Installation Methods
+
+### Method 1: Automated Installation (Recommended)
+
+#### Windows
+
+1. Open PowerShell (no admin required)
+2. Run the installer:
+   ```powershell
+   iwr -useb https://raw.githubusercontent.com/AkashAi7/Guardrail/main/install.ps1 | iex
+   ```
+3. Follow the prompts
+4. Restart VS Code
+
+**Default Install Location:** `%LOCALAPPDATA%\Guardrail`
+
+#### macOS / Linux
+
+1. Open Terminal
+2. Run the installer:
+   ```bash
+   curl -fsSL https://raw.githubusercontent.com/AkashAi7/Guardrail/main/scripts/install.sh | bash
+   ```
+3. Follow the prompts
+4. Restart VS Code
+
+**Default Install Location:** `~/.guardrail`
+
+---
+
+### Method 2: Manual Installation from GitHub
+
+If you prefer manual installation or the automated script doesn't work:
+
+#### Step 1: Clone Repository
 
 ```bash
-# Install
-npm install -g @github/copilot
-
-# Verify
-copilot --version
-
-# Authenticate (opens browser)
-copilot auth
-```
-
-### Step 2: Download Code Guardrail
-
-**Option A: From GitHub Releases**
-```bash
-# Download latest release
-# Extract to a folder
-```
-
-**Option B: Clone Repository**
-```bash
+# Clone to your preferred location
 git clone https://github.com/AkashAi7/Guardrail.git
 cd Guardrail
 ```
 
-### Step 3: Start Backend Service
+#### Step 2: Install Backend Service
 
 ```bash
 cd service
+
+# Create .env configuration
+cp .env.example .env
+
+# Install dependencies
 npm install
+
+# Build the service
+npm run build
+```
+
+#### Step 3: Configure Provider (Optional)
+
+Edit `service/.env` file:
+
+**Option A: Use GitHub Copilot (Free with Copilot subscription)**
+```bash
+PROVIDER_MODE=auto
+```
+
+**Option B: Use OpenAI**
+```bash
+PROVIDER_MODE=byok
+OPENAI_API_KEY=sk-your-key-here
+BYOK_MODEL=gpt-4o
+```
+
+**Option C: Use Anthropic**
+```bash
+PROVIDER_MODE=byok
+ANTHROPIC_API_KEY=sk-ant-your-key-here
+BYOK_MODEL=claude-3-5-sonnet-20241022
+```
+
+#### Step 4: Start Backend Service
+
+```bash
 npm start
 ```
 
-You should see:
+Keep this terminal open! You should see:
 ```
 🛡️  GUARDRAIL SERVICE
 🚀 Server running on http://localhost:3000
-✅ Copilot CLI connected
+✅ Provider connected
 ```
 
-**Keep this terminal open!**
+#### Step 5: Install VS Code Extension
 
-### Step 4: Install VS Code Extension
+Open a new terminal:
 
-**Option A: From File**
 ```bash
 cd ../extension
+
+# Install dependencies
+npm install
+
+# Compile TypeScript
+npm run compile
+
+# Package extension
+npm run package
+
+# Install in VS Code
 code --install-extension code-guardrail-0.1.0.vsix
 ```
 
-**Option B: From VS Code**
+**Or install via VS Code UI:**
 1. Open VS Code
-2. Go to Extensions (Ctrl+Shift+X)
-3. Click "..." menu → "Install from VSIX"
+2. Go to Extensions (`Ctrl+Shift+X` / `Cmd+Shift+X`)
+3. Click `...` menu → `Install from VSIX`
 4. Select `extension/code-guardrail-0.1.0.vsix`
 
-### Step 5: Verify Installation
+#### Step 6: Restart VS Code
 
-1. Open any TypeScript file
-2. Type insecure code (e.g., `const password = "admin123";`)
-3. Wait 2 seconds
-4. See red squiggles appear! ✨
+Close and reopen VS Code to activate the extension.
 
 ---
 
-## 🎯 For Demos/Testing
+### Method 3: Development Installation
 
-### One-Line Start (After Installation)
+For contributors or developers:
 
-**Terminal 1: Start Backend**
 ```bash
-cd Guardrail/service && npm start
+# Clone repository
+git clone https://github.com/AkashAi7/Guardrail.git
+cd Guardrail
+
+# Install service in development mode
+cd service
+npm install
+cp .env.example .env
+npm run dev  # Starts with hot reload
+
+# In a new terminal, install extension
+cd ../extension
+npm install
+code --extensionDevelopmentPath=.
 ```
 
-**Terminal 2: Open Demo**
-```bash
-code Guardrail/DEMO.ts
-```
+This opens a new VS Code window with the extension loaded in development mode.
 
 ---
 
 ## 🔧 Configuration
 
-### Backend (.env file)
+### Backend Service Configuration
+
+Edit `service/.env` file:
+
+```bash
+# Service Configuration
+SERVICE_PORT=3000
+
+# Provider Mode: 'auto' (Copilot) or 'byok' (Bring Your Own Key)
+PROVIDER_MODE=auto
+
+# === BYOK Configuration (if PROVIDER_MODE=byok) ===
+
+# OpenAI
+OPENAI_API_KEY=sk-your-key-here
+BYOK_MODEL=gpt-4o
+
+# OR Anthropic
+ANTHROPIC_API_KEY=sk-ant-your-key-here
+BYOK_MODEL=claude-3-5-sonnet-20241022
+
+# OR Azure OpenAI
+AZURE_OPENAI_ENDPOINT=https://your-resource.openai.azure.com/
+AZURE_OPENAI_KEY=your-key-here
+AZURE_OPENAI_DEPLOYMENT=gpt-4
+
+# Governance Rules Directory
+GOVERNANCE_DIR=../governance
+
+# Logging
+LOG_LEVEL=info
+```
+
+### VS Code Extension Configuration
+
+Open VS Code settings (`Ctrl+,` / `Cmd+,`) and search for "Code Guardrail":
+
+```json
+{
+  "codeGuardrail.enabled": true,
+  "codeGuardrail.serviceUrl": "http://localhost:3000",
+  "codeGuardrail.autoAnalyzeOnSave": true,
+  "codeGuardrail.autoAnalyzeOnType": false,
+  "codeGuardrail.debounceDelay": 2000,
+  "codeGuardrail.showInlineMessages": true,
+  "codeGuardrail.severityLevel": "warning"
+}
+```
+
+---
+
+## ✅ Verify Installation
+
+### Test Backend Service
+
+```bash
+# Health check
+curl http://localhost:3000/health
+
+# Expected response:
+# {"status":"ok","provider":"copilot","version":"1.0.0"}
+```
+
+### Test VS Code Extension
+
+1. Open any TypeScript/JavaScript file
+2. Type potentially insecure code:
+   ```typescript
+   const apiKey = "sk-1234567890";
+   const password = "admin123";
+   ```
+3. Save the file (`Ctrl+S` / `Cmd+S`)
+4. Wait 2 seconds
+5. ✨ Red squiggles should appear with warnings!
+
+### Check Extension Status
+
+- Look for the Guardrail shield icon (🛡️) in the VS Code status bar
+- Click it to see the connection status
+- Green = Connected, Red = Disconnected
+
+---
+
+## 🐛 Troubleshooting
+
+### Service Won't Start
+
+**Issue: Port 3000 already in use**
+
+**Windows:**
+```powershell
+# Find and kill process on port 3000
+Get-NetTCPConnection -LocalPort 3000 | Select-Object -ExpandProperty OwningProcess | Stop-Process -Force
+```
+
+**macOS/Linux:**
+```bash
+# Find and kill process on port 3000
+lsof -ti:3000 | xargs kill -9
+```
+
+**Or change the port:**
+Edit `service/.env`:
+```bash
+SERVICE_PORT=3001
+```
+
+And update VS Code settings:
+```json
+"codeGuardrail.serviceUrl": "http://localhost:3001"
+```
+
+---
+
+**Issue: "Cannot find module" errors**
+
+```bash
+cd service
+rm -rf node_modules package-lock.json
+npm install
+npm run build
+```
+
+---
+
+**Issue: GitHub Copilot not detected**
+
+1. Ensure GitHub Copilot extension is installed in VS Code
+2. Verify Copilot authentication: Open Copilot chat in VS Code
+3. Switch to BYOK mode in `service/.env`:
+   ```bash
+   PROVIDER_MODE=byok
+   OPENAI_API_KEY=your-key-here
+   ```
+
+---
+
+### Extension Not Working
+
+**Issue: No analysis happening**
+
+1. Check if service is running:
+   ```bash
+   curl http://localhost:3000/health
+   ```
+   
+2. Check VS Code Output panel:
+   - View → Output
+   - Select "Code Guardrail" from dropdown
+   
+3. Reload VS Code window:
+   - `Ctrl+Shift+P` / `Cmd+Shift+P`
+   - Type: "Developer: Reload Window"
+
+---
+
+**Issue: Extension not found after installation**
+
+1. Verify installation:
+   ```bash
+   code --list-extensions | grep guardrail
+   ```
+   
+2. Reinstall manually:
+   ```bash
+   cd extension
+   code --install-extension code-guardrail-0.1.0.vsix --force
+   ```
+   
+3. Restart VS Code completely
+
+---
+
+**Issue: "Service unreachable" error**
+
+1. Check service URL in settings:
+   - Open VS Code settings
+   - Search for `codeGuardrail.serviceUrl`
+   - Should be: `http://localhost:3000`
+   
+2. Check firewall settings (allow Node.js)
+   
+3. Test connectivity:
+   ```bash
+   curl http://localhost:3000/health
+   ```
+
+---
+
+### Build Errors
+
+**Issue: TypeScript compilation errors**
+
+```bash
+# Service
+cd service
+npm install --save-dev typescript @types/node
+npm run build
+
+# Extension
+cd extension
+npm install --save-dev typescript
+npm run compile
+```
+
+---
+
+**Issue: "vsce: command not found"**
+
+```bash
+npm install -g @vscode/vsce
+```
+
+---
+
+### Platform-Specific Issues
+
+**Windows: PowerShell execution policy error**
+
+Run as Administrator:
+```powershell
+Set-ExecutionPolicy RemoteSigned -Scope CurrentUser
+```
+
+---
+
+**macOS: "quarantine" error**
+
+```bash
+xattr -d com.apple.quarantine ~/.guardrail/scripts/install.sh
+chmod +x ~/.guardrail/scripts/install.sh
+```
+
+---
+
+**Linux: Permission denied**
+
+```bash
+chmod +x ~/.guardrail/scripts/install.sh
+sudo chown -R $USER:$USER ~/.guardrail
+```
+
+---
+
+## 🔄 Updating Guardrail
+
+### Automated Update
+
+**Windows:**
+```powershell
+cd $env:LOCALAPPDATA\Guardrail
+git pull origin main
+cd service && npm install && npm run build
+cd ../extension && npm install && npm run compile && npm run package
+code --install-extension code-guardrail-0.1.0.vsix --force
+```
+
+**macOS/Linux:**
+```bash
+cd ~/.guardrail
+git pull origin main
+cd service && npm install && npm run build
+cd ../extension && npm install && npm run compile && npm run package
+code --install-extension code-guardrail-0.1.0.vsix --force
+```
+
+### Fresh Reinstall
+
+Just run the installer again - it will detect the existing installation and prompt to reinstall.
+
+---
+
+## 🗑️ Uninstallation
+
+### Automated Uninstall
+
+**Windows:**
+```powershell
+iwr -useb https://raw.githubusercontent.com/AkashAi7/Guardrail/main/install.ps1 | iex -Uninstall
+```
+
+### Manual Uninstall
+
+**Windows:**
+```powershell
+# Stop service
+Stop-Process -Name node -Force
+
+# Remove installation
+Remove-Item -Recurse -Force "$env:LOCALAPPDATA\Guardrail"
+
+# Uninstall extension
+code --uninstall-extension AkashAi7.code-guardrail
+```
+
+**macOS/Linux:**
+```bash
+# Stop service
+pkill -f guardrail
+
+# Remove installation
+rm -rf ~/.guardrail
+
+# Uninstall extension
+code --uninstall-extension AkashAi7.code-guardrail
+```
+
+---
+
+## 📚 Next Steps
+
+After successful installation:
+
+1. **Read the documentation:**
+   - [README.md](./README.md) - System overview
+   - [GETTING_STARTED.md](./GETTING_STARTED.md) - Usage guide
+   - [RULES_LIBRARY_EXAMPLES.md](./RULES_LIBRARY_EXAMPLES.md) - Rule definitions
+
+2. **Try the demo:**
+   ```bash
+   code DEMO.ts
+   ```
+
+3. **Customize rules:**
+   - Edit files in `governance/` directory
+   - Reload rules: Command Palette → "Code Guardrail: Reload Governance Rules"
+
+4. **Configure for your team:**
+   - Add custom compliance rules
+   - Integrate with CI/CD (see [SDK_INTEGRATION.md](./SDK_INTEGRATION.md))
+
+---
+
+## 💬 Need Help?
+
+- 🐛 [Report Issues](https://github.com/AkashAi7/Guardrail/issues)
+- 💬 [Discussions](https://github.com/AkashAi7/Guardrail/discussions)
+- 📖 [Full Documentation](https://github.com/AkashAi7/Guardrail)
+- ✉️ Contact: [Your Contact Info]
+
+---
+
+## 🎉 Installation Complete!
+
+You're all set! Guardrail is now protecting your code in real-time.
+
+Happy coding! 🛡️
 ```bash
 cd service
 cp .env.example .env

@@ -76,35 +76,54 @@ This repository contains complete design and implementation docs:
 
 ## 🚀 **Quick Start (5 Minutes)**
 
-### **Prerequisites**
+### **One-Line Installation**
 
-```bash
-# 1. Install Copilot CLI
-gh extension install github/gh-copilot
-copilot auth login
-
-# 2. Verify Node.js
-node --version  # v18+
-
-# 3. Clone/setup project
-mkdir guardrail-system && cd guardrail-system
+**Windows (PowerShell):**
+```powershell
+iwr -useb https://raw.githubusercontent.com/AkashAi7/Guardrail/main/install.ps1 | iex
 ```
 
-### **Run the MVP**
-
+**macOS / Linux:**
 ```bash
-# See QUICK_START_IMPLEMENTATION.md for full instructions
-
-# Backend
-cd backend
-npm install
-npm run dev
-
-# Extension (separate terminal)
-cd extension
-npm install
-code --extensionDevelopmentPath=.
+curl -fsSL https://raw.githubusercontent.com/AkashAi7/Guardrail/main/scripts/install.sh | bash
 ```
+
+That's it! The installer will:
+- ✅ Check prerequisites (Node.js 18+, VS Code, Git)
+- ✅ Download and install the service
+- ✅ Build and install the VS Code extension  
+- ✅ Auto-detect GitHub Copilot OR prompt for API keys
+
+**Installation time:** ~3-5 minutes
+
+### **Start the Service**
+
+After installation completes:
+
+**Windows:**
+```powershell
+cd $env:LOCALAPPDATA\Guardrail\service
+npm start
+```
+
+**macOS/Linux:**
+```bash
+cd ~/.guardrail/service
+npm start
+```
+
+### **Verify Installation**
+
+1. Restart VS Code
+2. Open any TypeScript/JavaScript file
+3. Type potentially insecure code:
+   ```typescript
+   const password = "admin123";
+   const apiKey = "sk-1234567890";
+   ```
+4. Save the file → See red squiggles appear! ✨
+
+📖 **Detailed Instructions:** See [INSTALL.md](./INSTALL.md) for manual installation and troubleshooting.
 
 ---
 
