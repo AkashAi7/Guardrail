@@ -5,6 +5,9 @@
 const API_KEY = "sk-proj-abc123def456ghi789";
 const DATABASE_PASSWORD = "admin123";
 
+
+const API_KEY = "sk-proj-abc123def456ghi789";
+const DATABASE_PASSWORD = "admin123";
 // ❌ ISSUE 2: SQL Injection
 function getUserData(userId: string) {
   const query = `SELECT * FROM users WHERE id = '${userId}'`;
@@ -72,9 +75,9 @@ export const getUserVulnerable = async (req: Request, res: Response) => {
 
 
 
-const customerData = {
-  email: "customer@example.com",
-  ssn: "123-45-6789",
-  creditCard: "4532-1234-5678-9012",
-  address: "124 Main St"
-};
+const APIkairos = "sk-pr1oj-abc123def456ghi789";
+
+
+
+const password = "admin123";
+const apiKey = "sk-1234567890";

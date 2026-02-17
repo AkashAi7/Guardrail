@@ -1,39 +1,29 @@
 {
   "name": "code-guardrail",
   "displayName": "Code Guardrail",
-  "description": "Real-time intelligent code analysis powered by GitHub Copilot SDK for security, compliance, and best practices",
-  "version": "0.1.0",
+  "description": "Real-time security and compliance code scanner - detects secrets, SQL injection, XSS, and more",
+  "version": "0.2.0",
   "publisher": "AkashAi7",
   "icon": "icon.png",
-  "galleryBanner": {
-    "color": "#1e1e1e",
-    "theme": "dark"
-  },
   "repository": {
     "type": "git",
     "url": "https://github.com/AkashAi7/Guardrail.git"
   },
-  "bugs": {
-    "url": "https://github.com/AkashAi7/Guardrail/issues"
-  },
-  "homepage": "https://github.com/AkashAi7/Guardrail#readme",
-  "license": "MIT",
   "engines": {
     "vscode": "^1.80.0"
   },
   "categories": [
     "Linters",
-    "Programming Languages",
-    "Other"
+    "Programming Languages"
   ],
   "keywords": [
     "security",
     "compliance",
-    "code quality",
     "linter",
     "guardrail",
-    "copilot",
-    "ai"
+    "sql-injection",
+    "xss",
+    "secrets"
   ],
   "activationEvents": [
     "onStartupFinished"
@@ -43,156 +33,22 @@
     "commands": [
       {
         "command": "codeGuardrail.analyzeFile",
-        "title": "Code Guardrail: Analyze Current File",
-        "icon": "$(shield)"
-      },
-      {
-        "command": "codeGuardrail.analyzeWorkspace",
-        "title": "Code Guardrail: Analyze Entire Workspace"
+        "title": "Code Guardrail: Analyze Current File"
       },
       {
         "command": "codeGuardrail.clearDiagnostics",
         "title": "Code Guardrail: Clear All Issues"
-      },
-      {
-        "command": "codeGuardrail.startService",
-        "title": "Code Guardrail: Start Local Service"
-      },
-      {
-        "command": "codeGuardrail.stopService",
-        "title": "Code Guardrail: Stop Local Service"
-      },
-      {
-        "command": "codeGuardrail.reloadGovernance",
-        "title": "Code Guardrail: Reload Governance Rules"
-      }
-    ],
-    "configuration": {
-      "title": "Code Guardrail",
-      "properties": {
-        "codeGuardrail.enabled": {
-          "type": "boolean",
-          "default": true,
-          "description": "Enable/disable Code Guardrail analysis"
-        },
-        "codeGuardrail.serviceUrl": {
-          "type": "string",
-          "default": "http://localhost:3000",
-          "description": "URL of the local guardrail service"
-        },
-        "codeGuardrail.autoAnalyzeOnSave": {
-          "type": "boolean",
-          "default": true,
-          "description": "Automatically analyze files when saved"
-        },
-        "codeGuardrail.autoAnalyzeOnType": {
-          "type": "boolean",
-          "default": false,
-          "description": "Automatically analyze files while typing (may be slower)"
-        },
-        "codeGuardrail.analyzeOnTypeDebounce": {
-          "type": "number",
-          "default": 2000,
-          "description": "Debounce delay (ms) for analyze-on-type"
-        },
-        "codeGuardrail.ignoredFiles": {
-          "type": "array",
-          "default": [
-            "**/node_modules/**",
-            "**/dist/**",
-            "**/build/**",
-            "**/*.min.js",
-            "**/.git/**"
-          ],
-          "description": "Glob patterns for files to ignore"
-        },
-        "codeGuardrail.severityFilter": {
-          "type": "array",
-          "default": [
-            "HIGH",
-            "MEDIUM",
-            "LOW",
-            "INFO"
-          ],
-          "description": "Which severity levels to display",
-          "items": {
-            "type": "string",
-            "enum": [
-              "HIGH",
-              "MEDIUM",
-              "LOW",
-              "INFO"
-            ]
-          }
-        },
-        "codeGuardrail.showInfoSeverity": {
-          "type": "boolean",
-          "default": true,
-          "description": "Show INFO severity findings"
-        },
-        "codeGuardrail.autoStartService": {
-          "type": "boolean",
-          "default": true,
-          "description": "Automatically start the local service on extension activation"
-        },
-        "codeGuardrail.servicePath": {
-          "type": "string",
-          "default": "",
-          "description": "Path to the guardrail service directory (auto-detected if empty)"
-        }
-      }
-    },
-    "menus": {
-      "editor/context": [
-        {
-          "command": "codeGuardrail.analyzeFile",
-          "group": "codeGuardrail",
-          "when": "editorTextFocus"
-        }
-      ],
-      "editor/title": [
-        {
-          "command": "codeGuardrail.analyzeFile",
-          "group": "navigation",
-          "when": "editorTextFocus"
-        }
-      ]
-    },
-    "keybindings": [
-      {
-        "command": "codeGuardrail.analyzeFile",
-        "key": "ctrl+shift+g",
-        "mac": "cmd+shift+g",
-        "when": "editorTextFocus"
       }
     ]
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",
     "compile": "tsc -p ./",
-    "watch": "tsc -watch -p ./",
-    "pretest": "npm run compile && npm run lint",
-    "lint": "eslint src --ext ts",
-    "test": "node ./out/test/runTest.js",
-    "package": "vsce package",
-    "publish": "vsce publish"
+    "watch": "tsc -watch -p ./"
   },
   "devDependencies": {
-    "@types/glob": "^8.1.0",
-    "@types/mocha": "^10.0.1",
     "@types/node": "20.x",
     "@types/vscode": "^1.80.0",
-    "@typescript-eslint/eslint-plugin": "^6.0.0",
-    "@typescript-eslint/parser": "^6.0.0",
-    "@vscode/test-electron": "^2.3.3",
-    "@vscode/vsce": "^2.19.0",
-    "eslint": "^8.44.0",
-    "glob": "^10.3.3",
-    "mocha": "^10.2.0",
-    "sharp": "^0.34.5",
     "typescript": "^5.1.6"
-  },
-  "dependencies": {
-    "axios": "^1.4.0"
   }
 }
