@@ -77,13 +77,23 @@ export class GuardrailClient {
     language: string,
     filename: string
   ): Promise<AnalysisResult> {
-    const response = await this.client.post<AnalysisResult>('/analyze', {
+    const response = await this.client.post<{ success: boolean; result: AnalysisResult }>('/analyze', {
       content: code,
       language,
       filePath: filename
     });
 
-    return response.data;
+    // Backend returns { success: true, result: AnalysisResult }
+    if (response.data.success && response.data.result) {
+      return response.data.result;
+    }
+
+    // Fallback - if result has findings directly
+    if ((response.data as any).findings) {
+      return response.data as any;
+    }
+
+    throw new Error('Invalid response from service: ' + JSON.stringify(response.data));
   }
 
   async analyzeBatch(

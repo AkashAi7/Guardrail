@@ -75,7 +75,15 @@ class GuardrailClient {
             language,
             filePath: filename
         });
-        return response.data;
+        // Backend returns { success: true, result: AnalysisResult }
+        if (response.data.success && response.data.result) {
+            return response.data.result;
+        }
+        // Fallback - if result has findings directly
+        if (response.data.findings) {
+            return response.data;
+        }
+        throw new Error('Invalid response from service: ' + JSON.stringify(response.data));
     }
     async analyzeBatch(files) {
         const response = await this.client.post('/analyze-batch', { files });

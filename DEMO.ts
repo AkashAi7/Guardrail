@@ -69,3 +69,11 @@ export const getUserVulnerable = async (req: Request, res: Response) => {
   }
 };
 
+
+
+const customerData = {
+  email: "customer@example.com",
+  ssn: "123-45-6789",
+  creditCard: "4532-1234-5678-9012",
+  address: "123 Main St"
+};
