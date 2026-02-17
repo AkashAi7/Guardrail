@@ -57,8 +57,8 @@ class GuardrailClient {
     }
     async checkHealth() {
         try {
-            const response = await this.client.get('/api/health');
-            return response.status === 200 && response.data.status === 'healthy';
+            const response = await this.client.get('/health');
+            return response.status === 200;
         }
         catch (error) {
             console.error('Health check failed:', error);
@@ -66,23 +66,23 @@ class GuardrailClient {
         }
     }
     async getInfo() {
-        const response = await this.client.get('/api/info');
+        const response = await this.client.get('/info');
         return response.data;
     }
     async analyzeCode(code, language, filename) {
-        const response = await this.client.post('/api/analyze', {
-            code,
+        const response = await this.client.post('/analyze', {
+            content: code,
             language,
-            filename
+            filePath: filename
         });
         return response.data;
     }
     async analyzeBatch(files) {
-        const response = await this.client.post('/api/analyze-batch', { files });
+        const response = await this.client.post('/analyze-batch', { files });
         return response.data.results;
     }
     async reloadGovernance() {
-        await this.client.post('/api/reload-governance');
+        await this.client.post('/reload-governance');
     }
 }
 exports.GuardrailClient = GuardrailClient;

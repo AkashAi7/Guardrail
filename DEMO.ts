@@ -51,7 +51,21 @@ async function fetchDataSafely() {
   }
 }
 
-  email: "customer@example.com",
-  ssn: "123-45-6789",
-  creditCard: "4532-1234-5678-9012",
-  address: "123 Main St"
+import { Request, Response } from 'express';
+import { db } from './database';
+
+export const getUserVulnerable = async (req: Request, res: Response) => {
+  const userId = req.query.id; // Input from user
+
+  // VULNERABLE: Direct string concatenation
+  // If a user sends: 1; DROP TABLE users;--
+  const sql = `SELECT * FROM users WHERE id = '${userId}'`;
+
+  try {
+    const results = await db.query(sql);
+    res.json(results);
+  } catch (err) {
+    res.status(500).send("Database error");
+  }
+};
+

@@ -13,7 +13,7 @@ export class CopilotProvider extends BaseProvider {
 
   constructor(config: ProviderConfig) {
     super(config);
-    this.timeout = config.copilot?.timeout || 10000;
+    this.timeout = config.copilot?.timeout || 60000; // Increase to 60 seconds default
     
     this.copilotClient = new CopilotClient();
   }
@@ -52,15 +52,20 @@ export class CopilotProvider extends BaseProvider {
         this.isInitialized = true;
       }
 
-      const systemPrompt = this.governanceRules 
-        ? `${this.governanceRules}\n\n${this.buildAnalysisPrompt(request)}`
-        : this.buildAnalysisPrompt(request);
+      const systemMessage = this.governanceRules || 'You are a code analysis assistant that identifies security, compliance, and best practice issues.';
+      const userPrompt = this.buildAnalysisPrompt(request);
 
       console.log(`🔍 Copilot Provider: Analyzing ${request.filePath}...`);
 
-      const session = await this.copilotClient.createSession();
+      const session = await this.copilotClient.createSession({
+        model: this.config.copilot?.model || 'gpt-4',
+        systemMessage: {
+          mode: 'replace',
+          content: systemMessage,
+        },
+      });
 
-      const result = await this.performAnalysis(session, request, systemPrompt);
+      const result = await this.performAnalysis(session, request, userPrompt);
       
       await session.destroy();
 
@@ -80,20 +85,50 @@ export class CopilotProvider extends BaseProvider {
   private async performAnalysis(
     session: CopilotSession, 
     request: AnalysisRequest,
-    systemPrompt: string
+    userPrompt: string
   ): Promise<AnalysisResult> {
     try {
-      // Use sendAndWait - it automatically handles the response
-      const response = await session.sendAndWait(
-        { prompt: systemPrompt },
-        this.timeout
-      );
+      // Collect the assistant's response
+      let responseContent = '';
+      
+      const done = new Promise<void>((resolve, reject) => {
+        const timeout = setTimeout(() => {
+          console.error(`⏱️  Timeout after ${this.timeout}ms. Response so far: ${responseContent.substring(0, 100)}`);
+          reject(new Error(`Analysis timeout after ${this.timeout}ms`));
+        }, this.timeout);
 
-      if (!response || !response.data.content) {
+        session.on('assistant.message', (event: any) => {
+          console.log('📩 Received assistant.message event');
+          responseContent += event.data.content || '';
+        });
+
+        session.on('session.idle', () => {
+          console.log('✅ Session became idle');
+          clearTimeout(timeout);
+          resolve();
+        });
+
+        session.on('session.error', (event: any) => {
+          console.error('❌ Session error event:', event.data?.message);
+          clearTimeout(timeout);
+          reject(new Error(event.data?.message || 'Session error'));
+        });
+
+        console.log('📡 Set up event listeners, sending prompt...');
+      });
+
+      // Send the analysis request
+      await session.send({ prompt: userPrompt });
+      console.log('📤 Prompt sent, waiting for response...');
+      await done;
+
+      console.log(`📝 Response received (${responseContent.length} chars)`);
+
+      if (!responseContent) {
         throw new Error('No response from Copilot');
       }
 
-      const result = this.parseAnalysisResponse(response.data.content);
+      const result = this.parseAnalysisResponse(responseContent);
       console.log(`✅ Copilot analysis complete: ${result.summary.totalIssues} issues`);
       return result;
 
