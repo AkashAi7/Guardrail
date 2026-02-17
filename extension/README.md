@@ -1,41 +1,85 @@
-# Code Guardrail VS Code Extension
+# 🛡️ Code Guardrail - Real-Time Security & Compliance Analysis
 
-Real-time intelligent code analysis powered by GitHub Copilot SDK for security, compliance, and best practices.
+> Catch security vulnerabilities and compliance issues **as you type** with AI-powered code analysis!
 
-## Features
+Real-time intelligent code analysis using **GitHub Copilot** or **your own API keys** for security, compliance, and best practices.
+
+## ✨ Features
 
 - **🛡️ Real-Time Analysis:** Get instant feedback as you code
-- **🤖 AI-Powered:** Leverages GitHub Copilot SDK for semantic understanding
+- **🤖 Hybrid AI:** Uses GitHub Copilot ($0) OR Bring Your Own Key (~$0.03/1K)
 - **📋 Compliance Aware:** Built-in rules for GDPR, PCI-DSS, HIPAA, SOC2
 - **🔒 Security First:** Detects hardcoded secrets, SQL injection, XSS, and more
 - **💡 Smart Fixes:** Auto-fix suggestions with one click
 - **📚 Educational:** Learn why issues matter with detailed explanations
+- **🎯 Zero Config:** Auto-detects your setup and works out of the box
 
-## Quick Start
+## 🎯 Hybrid Provider Support
 
-### 1. Install Dependencies
+**The extension automatically detects and uses the best option for you:**
 
-The extension requires the local guardrail service to be running:
+### ✅ Option 1: GitHub Copilot (Free!)
+- If you have GitHub Copilot, the extension uses it automatically
+- **Zero additional cost** - leverages your existing subscription
+- No API keys needed
 
-```bash
-cd service
-npm install
-```
+### ✅ Option 2: Bring Your Own Key (~$0.03/1K tokens)
+- OpenAI (GPT-4o, GPT-4, GPT-3.5)
+- Anthropic (Claude 3.5 Sonnet, Claude 3 Opus)
+- Azure OpenAI (your deployment)
+- Full control over costs and data
 
-### 2. Start the Service
+## 📦 Installation
 
-```bash
-cd service
-npm start
-```
+### Recommended: One-Click Installer (Windows)
 
-Or use the extension command: **Code Guardrail: Start Local Service**
+The easiest way to get started is with our all-in-one installer:
 
-### 3. Analyze Code
+1. **Download** the installer from [GitHub Releases](https://github.com/AkashAi7/Guardrail/releases)
+2. **Run** this command:
+   ```powershell
+   powershell -ExecutionPolicy Bypass -File install.ps1
+   ```
+3. **Restart VS Code**
+4. **Done!** Extension and backend service are configured
 
-- **Automatic:** Save files to trigger analysis (enabled by default)
+**The installer automatically:**
+- ✅ Detects if you have GitHub Copilot
+- ✅ Prompts for API keys if needed
+- ✅ Installs and starts the backend service
+- ✅ Installs this extension
+
+### Manual Installation (Advanced)
+
+If you prefer manual setup or already have the backend service:
+
+1. **Install the Extension** (you're here!)
+2. **Install Backend Service:**
+   ```bash
+   git clone https://github.com/AkashAi7/Guardrail.git
+   cd Guardrail/service
+   npm install
+   npm run build
+   npm start
+   ```
+3. **Configure Provider** (optional if using Copilot):
+   - Copy `service/.env.example` to `service/.env`
+   - Add your API keys if using BYOK
+
+## 🚀 Quick Start
+
+Once installed, the extension works automatically!
+
+### Analyze Code
+
+- **Automatic:** Issues appear as you type (enabled by default)
 - **Manual:** Press `Ctrl+Shift+G` (Windows/Linux) or `Cmd+Shift+G` (Mac)
 - **Command Palette:** `Code Guardrail: Analyze Current File`
+
+### Check Backend Status
+
+- Look at the status bar (bottom right): "🛡️ Guardrail: Ready"
+- Or run: `Code Guardrail: Check Service Status`
 
 ## Features in Detail
 
