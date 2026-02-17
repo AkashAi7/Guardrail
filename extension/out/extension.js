@@ -180,66 +180,55 @@ function deactivate() {
 }
 async function analyzeDocument(document) {
     if (!shouldAnalyzeDocument(document)) {
+        console.log('[Code Guardrail] Skipping document:', document.uri.toString());
         return;
     }
     const config = vscode.workspace.getConfiguration('codeGuardrail');
     if (!config.get('enabled')) {
+        console.log('[Code Guardrail] Extension disabled in settings');
         return;
     }
+    console.log('[Code Guardrail] Starting analysis for:', document.fileName);
     statusBar.update('analyzing');
-    try {
-        const result = await client.analyzeCode(document.getText(), document.languageId, vscode.workspace.asRelativePath(document.uri));
-        // Filter by severity
-        const severityFilter = config.get('severityFilter', ['HIGH', 'MEDIUM', 'LOW', 'INFO']);
-        const showInfo = config.get('showInfoSeverity', true);
-        const filteredFindings = result.findings.filter((finding) => {
-            if (finding.severity === 'INFO' && !showInfo) {
-                return false;
-            }
-            return severityFilter.includes(finding.severity);
-        });
-        diagnosticsManager.setDiagnostics(document.uri, filteredFindings);
-        statusBar.update('connected', filteredFindings.length);
-        // Show notification for high-severity issues
-        const highSeverity = filteredFindings.filter((f) => f.severity === 'HIGH');
-        if (highSeverity.length > 0) {
-            const message = `Found ${highSeverity.length} high-severity issue(s) in ${document.fileName}`;
-            vscode.window.showWarningMessage(message, 'View Issues').then((selection) => {
-                if (selection === 'View Issues') {
-                    vscode.commands.executeCommand('workbench.actions.view.problems');
+    // Show a progress notification
+    vscode.window.withProgress({
+        location: vscode.ProgressLocation.Notification,
+        title: 'Code Guardrail: Analyzing...',
+        cancellable: false
+    }, async () => {
+        try {
+            const result = await client.analyzeCode(document.getText(), document.languageId, vscode.workspace.asRelativePath(document.uri));
+            console.log('[Code Guardrail] Analysis complete:', result.summary);
+            // Filter by severity
+            const severityFilter = config.get('severityFilter', ['HIGH', 'MEDIUM', 'LOW', 'INFO']);
+            const showInfo = config.get('showInfoSeverity', true);
+            const filteredFindings = result.findings.filter((finding) => {
+                if (finding.severity === 'INFO' && !showInfo) {
+                    return false;
                 }
+                return severityFilter.includes(finding.severity);
             });
-        }
-    }
-    catch (error) {
-        console.error('Analysis error:', error);
-        statusBar.update('error');
-        const errorMessage = error instanceof Error ? error.message : String(error);
-        if (errorMessage.includes('ECONNREFUSED') || errorMessage.includes('Network Error')) {
-            // Only show the error message once per session to avoid spam
-            if (!global.guardRailServiceErrorShown) {
-                global.guardRailServiceErrorShown = true;
-                vscode.window
-                    .showErrorMessage('Code Guardrail service is not responding. Would you like to start it?', 'Start Service', 'View Logs', 'Dismiss')
-                    .then((selection) => {
-                    if (selection === 'Start Service') {
-                        vscode.commands.executeCommand('codeGuardrail.startService');
-                        global.guardRailServiceErrorShown = false; // Reset after user action
-                    }
-                    else if (selection === 'View Logs') {
-                        vscode.commands.executeCommand('workbench.action.output.toggleOutput');
+            console.log('[Code Guardrail] Filtered findings:', filteredFindings.length);
+            diagnosticsManager.setDiagnostics(document.uri, filteredFindings);
+            statusBar.update('connected', filteredFindings.length);
+            // Show notification for issues found
+            if (filteredFindings.length > 0) {
+                const highSeverity = filteredFindings.filter((f) => f.severity === 'HIGH');
+                const message = `Found ${filteredFindings.length} issue(s) in ${document.fileName.split(/[/\\]/).pop()}`;
+                vscode.window.showInformationMessage(message, 'View Issues').then((selection) => {
+                    if (selection === 'View Issues') {
+                        vscode.commands.executeCommand('workbench.actions.view.problems');
                     }
                 });
             }
         }
-        else {
-            vscode.window.showErrorMessage(`Code analysis failed: ${errorMessage}`, 'View Logs').then(action => {
-                if (action === 'View Logs') {
-                    vscode.commands.executeCommand('workbench.action.output.toggleOutput');
-                }
-            });
+        catch (error) {
+            console.error('[Code Guardrail] Analysis error:', error);
+            statusBar.update('error');
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            vscode.window.showErrorMessage(`Code Guardrail: ${errorMessage}`);
         }
-    }
+    });
 }
 async function analyzeWorkspace() {
     const files = await vscode.workspace.findFiles('**/*', '**/node_modules/**');
