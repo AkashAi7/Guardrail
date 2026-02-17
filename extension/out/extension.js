@@ -57,11 +57,36 @@ async function activate(context) {
     // Check service status
     const isConnected = await client.checkHealth();
     statusBar.update(isConnected ? 'connected' : 'disconnected');
-    // Auto-start service if configured
+    // Auto-start service if configured and not already running
     if (!isConnected && config.get('autoStartService')) {
-        await serviceManager.start();
-        const connected = await client.checkHealth();
-        statusBar.update(connected ? 'connected' : 'disconnected');
+        console.log('Attempting to auto-start service...');
+        const started = await serviceManager.start();
+        if (started) {
+            // Wait a bit for service to initialize
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            const connected = await client.checkHealth();
+            statusBar.update(connected ? 'connected' : 'disconnected');
+            if (connected) {
+                vscode.window.showInformationMessage('Code Guardrail service started successfully. Analyzing your code...', 'Got it');
+            }
+            else {
+                vscode.window.showWarningMessage('Code Guardrail service started but not responding. Check output logs.', 'View Logs').then(action => {
+                    if (action === 'View Logs') {
+                        vscode.commands.executeCommand('workbench.action.output.toggleOutput');
+                    }
+                });
+            }
+        }
+    }
+    else if (!isConnected) {
+        vscode.window.showWarningMessage('Code Guardrail service is not running. Start it to enable code analysis.', 'Start Service', 'Dismiss').then(action => {
+            if (action === 'Start Service') {
+                vscode.commands.executeCommand('codeGuardrail.startService');
+            }
+        });
+    }
+    else {
+        vscode.window.showInformationMessage('Code Guardrail is ready! Your code is being analyzed for security and compliance issues.', 'Got it');
     }
     // Register commands
     context.subscriptions.push(vscode.commands.registerCommand('codeGuardrail.analyzeFile', async () => {
@@ -191,19 +216,28 @@ async function analyzeDocument(document) {
         statusBar.update('error');
         const errorMessage = error instanceof Error ? error.message : String(error);
         if (errorMessage.includes('ECONNREFUSED') || errorMessage.includes('Network Error')) {
-            vscode.window
-                .showErrorMessage('Code Guardrail service is not running', 'Start Service', 'Configure')
-                .then((selection) => {
-                if (selection === 'Start Service') {
-                    vscode.commands.executeCommand('codeGuardrail.startService');
-                }
-                else if (selection === 'Configure') {
-                    vscode.commands.executeCommand('workbench.action.openSettings', 'codeGuardrail');
-                }
-            });
+            // Only show the error message once per session to avoid spam
+            if (!global.guardRailServiceErrorShown) {
+                global.guardRailServiceErrorShown = true;
+                vscode.window
+                    .showErrorMessage('Code Guardrail service is not responding. Would you like to start it?', 'Start Service', 'View Logs', 'Dismiss')
+                    .then((selection) => {
+                    if (selection === 'Start Service') {
+                        vscode.commands.executeCommand('codeGuardrail.startService');
+                        global.guardRailServiceErrorShown = false; // Reset after user action
+                    }
+                    else if (selection === 'View Logs') {
+                        vscode.commands.executeCommand('workbench.action.output.toggleOutput');
+                    }
+                });
+            }
         }
         else {
-            vscode.window.showErrorMessage(`Code Guardrail analysis failed: ${errorMessage}`);
+            vscode.window.showErrorMessage(`Code analysis failed: ${errorMessage}`, 'View Logs').then(action => {
+                if (action === 'View Logs') {
+                    vscode.commands.executeCommand('workbench.action.output.toggleOutput');
+                }
+            });
         }
     }
 }

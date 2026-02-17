@@ -50,10 +50,25 @@ class ServiceManager {
         }
         const servicePath = await this.findServicePath();
         if (!servicePath) {
-            vscode.window.showErrorMessage('Could not find guardrail service. Please configure the service path in settings.');
+            const homeDir = process.env.HOME || process.env.USERPROFILE || '';
+            const expectedPath = process.platform === 'win32'
+                ? path.join(process.env.LOCALAPPDATA || '', 'Guardrail', 'service')
+                : path.join(homeDir, '.guardrail', 'service');
+            this.outputChannel.appendLine('Could not find guardrail service in any standard location');
+            this.outputChannel.appendLine(`Expected location: ${expectedPath}`);
+            this.outputChannel.appendLine('Please install the service using the installation script');
+            this.outputChannel.show();
+            const action = await vscode.window.showErrorMessage('Code Guardrail service not found. Please install the service first.', 'Open Installation Guide', 'Set Service Path');
+            if (action === 'Open Installation Guide') {
+                vscode.env.openExternal(vscode.Uri.parse('https://github.com/AkashAi7/Guardrail#installation'));
+            }
+            else if (action === 'Set Service Path') {
+                vscode.commands.executeCommand('workbench.action.openSettings', 'codeGuardrail.servicePath');
+            }
             return false;
         }
         this.outputChannel.appendLine(`Starting service from: ${servicePath}`);
+        this.outputChannel.show();
         return new Promise((resolve) => {
             try {
                 // Check if node_modules exists
@@ -151,6 +166,22 @@ class ServiceManager {
         const configuredPath = config.get('servicePath');
         if (configuredPath && fs.existsSync(configuredPath)) {
             return configuredPath;
+        }
+        // FIRST: Check standard installation locations
+        const homeDir = process.env.HOME || process.env.USERPROFILE || '';
+        const standardPaths = process.platform === 'win32'
+            ? [
+                path.join(process.env.LOCALAPPDATA || '', 'Guardrail', 'service'),
+                path.join(homeDir, '.guardrail', 'service')
+            ]
+            : [
+                path.join(homeDir, '.guardrail', 'service')
+            ];
+        for (const standardPath of standardPaths) {
+            if (fs.existsSync(path.join(standardPath, 'package.json'))) {
+                this.outputChannel.appendLine(`Found service at: ${standardPath}`);
+                return standardPath;
+            }
         }
         // Try to find service in workspace
         const workspaceFolders = vscode.workspace.workspaceFolders;
