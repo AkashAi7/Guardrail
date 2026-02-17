@@ -1,53 +1,36 @@
-# Guardrail Installer - Windows
-# Hybrid Edition: Auto-detects Copilot OR uses BYOK
-
-# Requires: PowerShell 5.1+, Node.js 18+, VS Code
-
-param(
-    [switch]$Uninstall,
-    [string]$InstallDir = "$env:LOCALAPPDATA\Guardrail",
-    [string]$Branch = "main"
-)
+# Code Guardrail - One-Click Installer
+# Usage: iwr https://raw.githubusercontent.com/AkashAi7/Guardrail/main/install.ps1 -UseBasicParsing | iex
 
 $ErrorActionPreference = "Stop"
 
-# Configuration
-$INSTALL_DIR = $InstallDir
-$SERVICE_NAME = "GuardrailService"
-$SERVICE_PORT = 3000
-$REPO_URL = "https://github.com/AkashAi7/Guardrail.git"
+Write-Host ""
+Write-Host "========================================" -ForegroundColor Cyan
+Write-Host "  🛡️  Code Guardrail Installer" -ForegroundColor Cyan
+Write-Host "========================================" -ForegroundColor Cyan
+Write-Host ""
+Write-Host "Downloading installer..." -ForegroundColor Yellow
 
-function Write-Step {
-    param([string]$Message)
-    Write-Host "`n===========================================================" -ForegroundColor Cyan
-    Write-Host "  $Message" -ForegroundColor Cyan
-    Write-Host "===========================================================" -ForegroundColor Cyan
-}
+# Download and run the full installer from releases
+$installerUrl = "https://raw.githubusercontent.com/AkashAi7/Guardrail/main/scripts/install-from-release.ps1"
 
-function Write-Success {
-    param([string]$Message)
-    Write-Host "✅ $Message" -ForegroundColor Green
-}
-
-function Write-Info {
-    param([string]$Message)
-    Write-Host "ℹ️  $Message" -ForegroundColor Yellow
-}
-
-function Write-Error-Custom {
-    param([string]$Message)
-    Write-Host "❌ $Message" -ForegroundColor Red
-}
-
-function Test-Prerequisites {
-    Write-Step "Checking Prerequisites"
+try {
+    $installer = Invoke-WebRequest -Uri $installerUrl -UseBasicParsing -ErrorAction Stop
     
-    # Check Node.js
-    try {
-        $nodeVersion = node --version
-        Write-Success "Node.js found: $nodeVersion"
-    } catch {
-        Write-Error-Custom "Node.js not found. Please install Node.js 18+ from https://nodejs.org"
+    Write-Host "✅ Downloaded installer" -ForegroundColor Green
+    Write-Host ""
+    
+    # Execute the installer script
+    Invoke-Expression $installer.Content
+    
+} catch {
+    Write-Host ""
+    Write-Host "❌ Failed to download installer" -ForegroundColor Red
+    Write-Host "Error: $_" -ForegroundColor Red
+    Write-Host ""
+    Write-Host "Please check:" -ForegroundColor Yellow
+    Write-Host "  1. Internet connection" -ForegroundColor Yellow
+    Write-Host "  2. GitHub is accessible" -ForegroundColor Yellow
+    Write-Host "  3. Or download manually from: https://github.com/AkashAi7/Guardrail/releases" -ForegroundColor Yellow
         exit 1
     }
     

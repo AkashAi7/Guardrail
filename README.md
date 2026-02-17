@@ -1,12 +1,40 @@
-# 🛡️ Runtime Guardrail System
+# 🛡️ Code Guardrail
 
-**Proactive Compliance & Security Using GitHub Copilot SDK**
+**Real-time Security & Compliance Analysis for VS Code**
+
+[![Version](https://img.shields.io/badge/version-0.1.0-blue.svg)](https://github.com/AkashAi7/Guardrail/releases)
+[![License](https://img.shields.io/badge/license-MIT-green.svg)](./LICENSE)
+[![Platform](https://img.shields.io/badge/platform-VS%20Code-blueviolet.svg)](https://code.visualstudio.com/)
+
+> Catch security vulnerabilities and compliance issues **while you code**, powered by GitHub Copilot SDK
 
 ---
 
-## 🎯 **What Is This?**
+## ⚡ One-Click Installation
 
-A **runtime guardrail system** that uses GitHub Copilot SDK to provide **real-time, intelligent feedback** to developers as they code, ensuring:
+Copy and paste one command - that's it!
+
+### Windows (PowerShell)
+
+```powershell
+iwr https://raw.githubusercontent.com/AkashAi7/Guardrail/main/install.ps1 -UseBasicParsing | iex
+```
+
+### macOS / Linux (Terminal)
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/AkashAi7/Guardrail/main/install.sh | bash
+```
+
+**⏱️ Takes 2-3 minutes** | **📦 ~100MB download** | **🔄 Auto-installs everything**
+
+**[📖 Alternative Installation Methods](#-quick-start---one-command-installation)**
+
+---
+
+## 🎯 What Is This?
+
+Code Guardrail provides **real-time, intelligent code analysis** in VS Code, catching issues as you type:
 
 ✅ **Security** - Catch vulnerabilities before commit  
 ✅ **Compliance** - GDPR, HIPAA, SOC2, PCI-DSS compliance  
@@ -74,56 +102,69 @@ This repository contains complete design and implementation docs:
 
 ---
 
-## 🚀 **Quick Start (5 Minutes)**
+## 🚀 **Quick Start - One Command Installation**
 
-### **One-Line Installation**
+### **📦 Option 1: One-Line Install (Recommended)**
+
+Copy and paste this command - it installs everything automatically:
 
 **Windows (PowerShell):**
 ```powershell
-iwr -useb https://raw.githubusercontent.com/AkashAi7/Guardrail/main/install.ps1 | iex
+iwr https://raw.githubusercontent.com/AkashAi7/Guardrail/main/install.ps1 -UseBasicParsing | iex
 ```
 
-**macOS / Linux:**
+**macOS / Linux (Bash):**
 ```bash
-curl -fsSL https://raw.githubusercontent.com/AkashAi7/Guardrail/main/scripts/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/AkashAi7/Guardrail/main/install.sh | bash
 ```
 
-That's it! The installer will:
-- ✅ Check prerequisites (Node.js 18+, VS Code, Git)
-- ✅ Download and install the service
-- ✅ Build and install the VS Code extension  
-- ✅ Auto-detect GitHub Copilot OR prompt for API keys
+**What it does:**
+- ✅ Checks prerequisites (Node.js 18+, VS Code)
+- ✅ Downloads pre-built service (~100MB)
+- ✅ Installs VS Code extension automatically
+- ✅ Starts the service for you
+- ✅ Detects GitHub Copilot OR uses your API keys
 
-**Installation time:** ~3-5 minutes
+**⏱️ Installation time:** 2-3 minutes
 
-### **Start the Service**
+---
 
-After installation completes:
+### **💾 Option 2: Manual VSIX Install**
 
-**Windows:**
-```powershell
-cd $env:LOCALAPPDATA\Guardrail\service
-npm start
-```
+If you prefer manual installation:
 
-**macOS/Linux:**
-```bash
-cd ~/.guardrail/service
-npm start
-```
+1. **Download the extension:** [code-guardrail-0.1.0.vsix](https://github.com/AkashAi7/Guardrail/releases/latest/download/code-guardrail-0.1.0.vsix)
+2. **Install in VS Code:**
+   ```bash
+   code --install-extension code-guardrail-0.1.0.vsix
+   ```
+3. **Download & extract service:** [guardrail-service-v0.1.0.zip](https://github.com/AkashAi7/Guardrail/releases/latest)
+4. **Start service:**
+   ```bash
+   # Extract to ~/.guardrail/service or %LOCALAPPDATA%\Guardrail\service
+   cd ~/.guardrail/service
+   npm start
+   ```
 
-### **Verify Installation**
+---
 
-1. Restart VS Code
-2. Open any TypeScript/JavaScript file
-3. Type potentially insecure code:
+### **✅ Verify Installation**
+
+After installation (one-liner does this automatically):
+
+1. **Open VS Code** (or reload window: `Ctrl+Shift+P` → "Reload Window")
+2. You'll see: **"Code Guardrail is ready!"** notification
+3. **Open any file** and add test code:
    ```typescript
    const password = "admin123";
    const apiKey = "sk-1234567890";
    ```
-4. Save the file → See red squiggles appear! ✨
+4. **Save the file** → See **red squiggles** appear! ✨
+5. **Check status bar** → Shield icon shows issue count
 
-📖 **Detailed Instructions:** See [INSTALL.md](./INSTALL.md) for manual installation and troubleshooting.
+**Not working?** See [troubleshooting](./INSTALL.md#troubleshooting) or open an [issue](https://github.com/AkashAi7/Guardrail/issues).
+
+---
 
 ---
 
