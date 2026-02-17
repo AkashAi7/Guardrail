@@ -33,6 +33,9 @@ yarn-error.log*
 # Extension packaging
 *.vsix
 
+# Release artifacts (upload to GitHub Releases, don't commit to repo)
+release/
+
 # Test coverage
 coverage/
 .nyc_output/
