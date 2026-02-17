@@ -1,8 +1,8 @@
 import express, { Request, Response } from 'express';
 import cors from 'cors';
-import { GuardrailAgent } from './agent';
-import { AnalysisRequest } from './types';
-import config from './config';
+import { GuardrailAgent } from './agent.js';
+import { AnalysisRequest } from './types/index.js';
+import config from './config.js';
 
 export class GuardrailServer {
   private app: express.Application;

@@ -2,6 +2,7 @@
   "name": "@guardrail/service",
   "version": "1.0.0",
   "description": "Runtime code guardrail service using GitHub Copilot SDK",
+  "type": "module",
   "main": "dist/index.js",
   "bin": {
     "guardrail-service": "./bin/guardrail-service.js"

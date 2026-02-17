@@ -1,6 +1,6 @@
 import * as dotenv from 'dotenv';
 import * as path from 'path';
-import { ServiceConfig } from './types';
+import { ServiceConfig } from './types/index.js';
 
 // Load environment variables
 dotenv.config();

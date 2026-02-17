@@ -2,7 +2,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { glob } from 'glob';
 import matter from 'gray-matter';
-import { GovernanceRule } from './types';
+import { GovernanceRule } from './types/index.js';
 
 export class GovernanceLoader {
   private rules: GovernanceRule[] = [];

@@ -1,6 +1,6 @@
-import { AnalysisRequest, AnalysisResult, Finding } from './types';
-import { GovernanceLoader } from './governance-loader';
-import config from './config';
+import { AnalysisRequest, AnalysisResult, Finding } from './types/index.js';
+import { GovernanceLoader } from './governance-loader.js';
+import config from './config.js';
 import { CopilotClient, CopilotSession } from '@github/copilot-sdk';
 
 export class GuardrailAgent {

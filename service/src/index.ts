@@ -1,4 +1,4 @@
-import { GuardrailServer } from './server';
+import { GuardrailServer } from './server.js';
 
 // Main entry point
 async function main() {
