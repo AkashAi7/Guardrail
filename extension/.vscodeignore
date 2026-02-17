@@ -9,9 +9,20 @@ tsconfig.json
 *.map
 
 # Development files
-node_modules/**
 .vscode/**
 .vscode-test/**
+
+# Exclude MOST of node_modules but keep production dependencies
+node_modules/**
+!node_modules/axios/**
+!node_modules/proxy-from-env/**
+!node_modules/follow-redirects/**
+!node_modules/form-data/**
+!node_modules/combined-stream/**
+!node_modules/delayed-stream/**
+!node_modules/mime-types/**
+!node_modules/mime-db/**
+!node_modules/asynckit/**
 
 # Git
 .git/**
