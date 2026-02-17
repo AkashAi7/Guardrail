@@ -13,6 +13,9 @@ let statusBar: StatusBar;
 export async function activate(context: vscode.ExtensionContext) {
   console.log('Code Guardrail extension activating...');
 
+  // Get configuration once
+  const config = vscode.workspace.getConfiguration('codeGuardrail');
+
   // Initialize components
   client = new GuardrailClient();
   diagnosticsManager = new DiagnosticsManager();
@@ -24,7 +27,6 @@ export async function activate(context: vscode.ExtensionContext) {
   statusBar.update(isConnected ? 'connected' : 'disconnected');
 
   // Auto-start service if configured
-  const config = vscode.workspace.getConfiguration('codeGuardrail');
   if (!isConnected && config.get('autoStartService')) {
     await serviceManager.start();
     const connected = await client.checkHealth();
@@ -103,8 +105,6 @@ export async function activate(context: vscode.ExtensionContext) {
   );
 
   // Listen to document changes
-  const config = vscode.workspace.getConfiguration('codeGuardrail');
-
   if (config.get('autoAnalyzeOnSave')) {
     context.subscriptions.push(
       vscode.workspace.onDidSaveTextDocument((document) => {

@@ -1,6 +1,12 @@
+/**
+ * DEPRECATED: This agent is replaced by agent-hybrid.ts
+ * Kept for reference and backward compatibility
+ * 
+ * Use HybridGuardrailAgent instead for the new provider architecture
+ */
+
 import { AnalysisRequest, AnalysisResult, Finding } from './types/index.js';
 import { GovernanceLoader } from './governance-loader.js';
-import config from './config.js';
 import { CopilotClient, CopilotSession } from '@github/copilot-sdk';
 
 export class GuardrailAgent {
@@ -19,12 +25,6 @@ export class GuardrailAgent {
       autoRestart: true,
       logLevel: 'info',
     };
-
-    // Add authentication based on config
-    if (config.copilotAuthMethod === 'byok' && config.openaiApiKey) {
-      // Note: BYOK support depends on CLI version capabilities
-      console.log('⚠️  BYOK mode: Ensure your GitHub Copilot CLI supports custom providers');
-    }
 
     this.copilotClient = new CopilotClient(clientOptions);
   }
@@ -103,7 +103,7 @@ export class GuardrailAgent {
   private async performSDKAnalysis(userPrompt: string): Promise<AnalysisResult> {
     // Create a new session
     const session = await this.copilotClient.createSession({
-      model: config.copilotModel,
+      model: 'gpt-4', // Hardcoded default
       systemMessage: {
         mode: 'replace',
         content: this.systemPrompt,
@@ -117,7 +117,7 @@ export class GuardrailAgent {
       const done = new Promise<void>((resolve, reject) => {
         const timeout = setTimeout(() => {
           reject(new Error('Analysis timeout'));
-        }, config.analysisTimeout);
+        }, 10000); // Hardcoded default timeout
 
         session.on('assistant.message', (event) => {
           responseContent += event.data.content || '';

@@ -40,6 +40,7 @@ export interface AnalysisResult {
     info: number;
   };
   analysisTime: number;
+  error?: string;
 }
 
 export interface GovernanceRule {
@@ -52,14 +53,7 @@ export interface GovernanceRule {
 export interface ServiceConfig {
   port: number;
   governancePath: string;
-  copilotAuthMethod: 'github' | 'byok';
-  copilotModel: string;
-  analysisTimeout: number;
   maxFileSize: number;
   enableCaching: boolean;
-  // BYOK (Bring Your Own Key) options
-  openaiApiKey?: string;
-  azureOpenaiEndpoint?: string;
-  azureOpenaiKey?: string;
-  azureOpenaiDeployment?: string;
+  providerConfig: any; // ProviderConfig from providers module
 }

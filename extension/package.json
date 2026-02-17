@@ -3,8 +3,11 @@
   "displayName": "Code Guardrail",
   "description": "Real-time intelligent code analysis powered by GitHub Copilot SDK for security, compliance, and best practices",
   "version": "0.1.0",
-  "publisher": "your-org",
-  "icon": "images/icon.png",
+  "publisher": "AkashAi7",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/AkashAi7/Guardrail.git"
+  },
   "engines": {
     "vscode": "^1.80.0"
   },
