@@ -27,7 +27,7 @@ export const providerConfig: ProviderConfig = {
   mode: getProviderMode(),
   copilot: {
     model: process.env.COPILOT_MODEL || 'gpt-4',
-    timeout: parseInt(process.env.ANALYSIS_TIMEOUT_MS || '10000', 10)
+    timeout: parseInt(process.env.ANALYSIS_TIMEOUT_MS || '60000', 10) // Increased to 60s for Copilot response
   },
   byok: {
     provider: getBYOKProvider(),
