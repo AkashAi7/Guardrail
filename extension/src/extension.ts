@@ -25,8 +25,9 @@ export function activate(context: vscode.ExtensionContext) {
     
     // Create status bar
     statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
-    statusBarItem.text = '$(shield) Guardrail';
-    statusBarItem.tooltip = 'Code Guardrail - Security Scanner Active';
+    statusBarItem.text = '$(shield-check) Guardrail: Ready';
+    statusBarItem.tooltip = 'Code Guardrail - Active and scanning. Click for more options.';
+    statusBarItem.command = 'codeGuardrail.showQuickPick';
     statusBarItem.show();
     
     // Register commands
@@ -42,6 +43,76 @@ export function activate(context: vscode.ExtensionContext) {
     const clearCmd = vscode.commands.registerCommand('codeGuardrail.clearDiagnostics', () => {
         diagnosticCollection.clear();
         vscode.window.showInformationMessage('Cleared all Code Guardrail issues');
+    });
+
+    const showQuickPickCmd = vscode.commands.registerCommand('codeGuardrail.showQuickPick', async () => {
+        const items = [
+            {
+                label: '$(play) Test with Sample Code',
+                description: 'Create a test file with intentional security issues',
+                action: 'test'
+            },
+            {
+                label: '$(file-code) Analyze Current File',
+                description: 'Scan the active file for security issues',
+                action: 'analyze'
+            },
+            {
+                label: '$(refresh) Reload Rules',
+                description: 'Reload custom rules from workspace',
+                action: 'reload'
+            },
+            {
+                label: '$(clear-all) Clear All Issues',
+                description: 'Remove all diagnostics from the Problems panel',
+                action: 'clear'
+            },
+            {
+                label: '$(file-add) Create Sample Rules',
+                description: 'Generate example rules file in workspace',
+                action: 'init'
+            },
+            {
+                label: '$(info) About Code Guardrail',
+                description: 'View extension information',
+                action: 'about'
+            }
+        ];
+
+        const selected = await vscode.window.showQuickPick(items, {
+            placeHolder: 'Code Guardrail - Choose an action'
+        });
+
+        if (selected) {
+            switch (selected.action) {
+                case 'test':
+                    createSampleTestFile();
+                    break;
+                case 'analyze':
+                    vscode.commands.executeCommand('codeGuardrail.analyzeFile');
+                    break;
+                case 'reload':
+                    vscode.commands.executeCommand('codeGuardrail.reloadRules');
+                    break;
+                case 'clear':
+                    vscode.commands.executeCommand('codeGuardrail.clearDiagnostics');
+                    break;
+                case 'init':
+                    vscode.commands.executeCommand('codeGuardrail.initConfig');
+                    break;
+                case 'about':
+                    const builtInCount = scanner.getBuiltInRuleIds().length;
+                    const categories = scanner.getCategories();
+                    vscode.window.showInformationMessage(
+                        `Code Guardrail v${context.extension.packageJSON.version}\n\n` +
+                        `✅ ${builtInCount} built-in security rules\n` +
+                        `📂 Categories: ${categories.join(', ')}\n\n` +
+                        `No backend service required - everything runs locally!`,
+                        'OK'
+                    );
+                    break;
+            }
+        }
     });
 
     const reloadCmd = vscode.commands.registerCommand('codeGuardrail.reloadRules', () => {
@@ -176,6 +247,7 @@ export function activate(context: vscode.ExtensionContext) {
         statusBarItem,
         analyzeCmd,
         clearCmd,
+        showQuickPickCmd,
         reloadCmd,
         initCmd,
         importCmd,
@@ -183,7 +255,17 @@ export function activate(context: vscode.ExtensionContext) {
         onOpen
     );
     
-    vscode.window.showInformationMessage('Code Guardrail is active! Scanning for security issues.');
+    // Show welcome message with clear next steps
+    const builtInRuleCount = scanner.getBuiltInRuleIds().length;
+    const message = `Code Guardrail is ready! ${builtInRuleCount} built-in security rules active. No setup required - just start coding!`;
+    vscode.window.showInformationMessage(message, 'Test with Sample', 'View Rules')
+        .then(selection => {
+            if (selection === 'Test with Sample') {
+                createSampleTestFile();
+            } else if (selection === 'View Rules') {
+                vscode.commands.executeCommand('codeGuardrail.initConfig');
+            }
+        });
     console.log('Code Guardrail activated successfully');
 }
 
@@ -298,11 +380,19 @@ function analyzeDocument(document: vscode.TextDocument) {
     diagnosticCollection.set(document.uri, diagnostics);
     
     if (findings.length > 0) {
-        statusBarItem.text = `$(shield) Guardrail: ${findings.length} issue(s)`;
-        statusBarItem.backgroundColor = new vscode.ThemeColor('statusBarItem.warningBackground');
+        const highCount = findings.filter(f => f.severity === 'HIGH').length;
+        if (highCount > 0) {
+            statusBarItem.text = `$(alert) Guardrail: ${findings.length} issue(s) (${highCount} critical)`;
+            statusBarItem.backgroundColor = new vscode.ThemeColor('statusBarItem.errorBackground');
+        } else {
+            statusBarItem.text = `$(warning) Guardrail: ${findings.length} issue(s)`;
+            statusBarItem.backgroundColor = new vscode.ThemeColor('statusBarItem.warningBackground');
+        }
+        statusBarItem.tooltip = `Code Guardrail found ${findings.length} security/compliance issue(s). Click to see options.`;
     } else {
-        statusBarItem.text = '$(shield) Guardrail: Clean';
+        statusBarItem.text = '$(shield-check) Guardrail: Clean';
         statusBarItem.backgroundColor = undefined;
+        statusBarItem.tooltip = 'Code Guardrail - No issues found. Click for options.';
     }
 }
 
@@ -318,6 +408,50 @@ function mapSeverity(severity: string): vscode.DiagnosticSeverity {
         default:
             return vscode.DiagnosticSeverity.Hint;
     }
+}
+
+async function createSampleTestFile() {
+    const sampleCode = `// Code Guardrail Test File
+// This file contains intentional security issues for testing
+
+// Test 1: Hardcoded API Key (should show HIGH severity error)
+const apiKey = "sk-1234567890abcdefghij";
+
+// Test 2: Hardcoded Password (should show HIGH severity error)  
+const password = "admin123";
+
+// Test 3: SQL Injection vulnerability (should show HIGH severity error)
+function getUserById(userId) {
+    const query = "SELECT * FROM users WHERE id = '" + userId + "'";
+    return db.query(query);
+}
+
+// Test 4: XSS vulnerability (should show HIGH severity error)
+function displayMessage(msg) {
+    document.getElementById('output').innerHTML = msg;
+}
+
+// Test 5: Empty catch block (should show MEDIUM severity warning)
+try {
+    riskyOperation();
+} catch (err) {
+}
+
+// Save this file to see security issues highlighted!
+// Issues will appear with red squiggles and in the Problems panel.
+`;
+
+    const doc = await vscode.workspace.openTextDocument({
+        content: sampleCode,
+        language: 'javascript'
+    });
+    
+    await vscode.window.showTextDocument(doc);
+    
+    vscode.window.showInformationMessage(
+        '✅ Sample test file created! Save it (Ctrl+S) to see security issues highlighted.',
+        'Got it'
+    );
 }
 
 export function deactivate() {

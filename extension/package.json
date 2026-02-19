@@ -50,6 +50,10 @@
       {
         "command": "codeGuardrail.importRules",
         "title": "Code Guardrail: Import Rules from File"
+      },
+      {
+        "command": "codeGuardrail.showQuickPick",
+        "title": "Code Guardrail: Show Menu"
       }
     ]
   },
