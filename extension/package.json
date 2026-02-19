@@ -31,15 +31,6 @@
     "onStartupFinished"
   ],
   "main": "./out/extension.js",
-  "files": [
-    "out/**",
-    "icon.png",
-    "README.md",
-    "LICENSE",
-    "../service/dist/**",
-    "../service/package.json",
-    "../service/node_modules/**"
-  ],
   "contributes": {
     "commands": [
       {
