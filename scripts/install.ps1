@@ -6,7 +6,7 @@ $ErrorActionPreference = "Stop"
 Write-Host ""
 Write-Host "╔═══════════════════════════════════════════════════════════════╗" -ForegroundColor Cyan
 Write-Host "║                                                               ║" -ForegroundColor Cyan
-Write-Host "║       🛡️  GUARDRAIL INSTALLER - DEVELOPMENT MODE 🛡️         ║" -ForegroundColor Cyan -BackgroundColor Black
+Write-Host "║       🛡️  GUARDRAIL INSTALLER - DEVELOPMENT MODE 🛡️         ║" -ForegroundColor Cyan
 Write-Host "║                                                               ║" -ForegroundColor Cyan
 Write-Host "║   Real-time Code Security & Compliance Analysis               ║" -ForegroundColor Cyan
 Write-Host "║   Supports: GitHub Copilot OR Bring Your Own Key              ║" -ForegroundColor Cyan
@@ -127,7 +127,7 @@ Set-Location ..
 Write-Host ""
 Write-Host "╔═══════════════════════════════════════════════════════════════╗" -ForegroundColor Green
 Write-Host "║                                                               ║" -ForegroundColor Green
-Write-Host "║              ✅  INSTALLATION COMPLETE! ✅                     ║" -ForegroundColor Green -BackgroundColor Black
+Write-Host "║              ✅  INSTALLATION COMPLETE! ✅                     ║" -ForegroundColor Green
 Write-Host "║                                                               ║" -ForegroundColor Green
 Write-Host "╚═══════════════════════════════════════════════════════════════╝" -ForegroundColor Green
 Write-Host ""

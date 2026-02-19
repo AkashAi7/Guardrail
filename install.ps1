@@ -6,7 +6,7 @@ $ErrorActionPreference = "Stop"
 Write-Host ""
 Write-Host "╔═══════════════════════════════════════════════════════════════╗" -ForegroundColor Cyan
 Write-Host "║                                                               ║" -ForegroundColor Cyan
-Write-Host "║         🛡️  CODE GUARDRAIL - ONE-CLICK INSTALLER 🛡️          ║" -ForegroundColor Cyan -BackgroundColor Black
+Write-Host "║         🛡️  CODE GUARDRAIL - ONE-CLICK INSTALLER 🛡️          ║" -ForegroundColor Cyan
 Write-Host "║                                                               ║" -ForegroundColor Cyan
 Write-Host "║   Real-time Security & Compliance Analysis for VS Code       ║" -ForegroundColor Cyan
 Write-Host "║                                                               ║" -ForegroundColor Cyan

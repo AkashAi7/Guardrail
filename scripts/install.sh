@@ -101,10 +101,6 @@ echo -e "${GREEN}✓${NC} Downloaded successfully"
 echo ""
 
 # Install service
-echo -e "${BLUE}→${NC} Installing backend dependencies (this may take a minute)..."
-cd "$INSTALL_DIR/service"
-
-echo "Installing backend dependencies (this may take a minute)..."
 cd "$INSTALL_DIR/service"
 
 if [ -f ".env" ]; then

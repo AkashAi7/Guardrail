@@ -16,7 +16,7 @@ $EXTENSION_URL = "$RELEASE_BASE_URL/code-guardrail-0.1.0.vsix"
 Write-Host ""
 Write-Host "╔═══════════════════════════════════════════════════════════════╗" -ForegroundColor Cyan
 Write-Host "║                                                               ║" -ForegroundColor Cyan
-Write-Host "║           🛡️  CODE GUARDRAIL INSTALLER 🛡️                   ║" -ForegroundColor Cyan -BackgroundColor Black
+Write-Host "║           🛡️  CODE GUARDRAIL INSTALLER 🛡️                   ║" -ForegroundColor Cyan
 Write-Host "║                                                               ║" -ForegroundColor Cyan
 Write-Host "║   Installing from GitHub Release (Lightweight ~10MB)         ║" -ForegroundColor Cyan
 Write-Host "║                                                               ║" -ForegroundColor Cyan
@@ -253,7 +253,7 @@ try {
 Write-Host ""
 Write-Host "╔═══════════════════════════════════════════════════════════════╗" -ForegroundColor Green
 Write-Host "║                                                               ║" -ForegroundColor Green
-Write-Host "║              ✅  INSTALLATION COMPLETE! ✅                     ║" -ForegroundColor Green -BackgroundColor Black
+Write-Host "║              ✅  INSTALLATION COMPLETE! ✅                     ║" -ForegroundColor Green
 Write-Host "║                                                               ║" -ForegroundColor Green
 Write-Host "╚═══════════════════════════════════════════════════════════════╝" -ForegroundColor Green
 Write-Host ""
