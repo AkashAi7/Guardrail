@@ -44,3 +44,6 @@ coverage/
 tmp/
 temp/
 *.tmp
+
+# Release packages (too large for git)
+guardrail-service-*.zip
