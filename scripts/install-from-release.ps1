@@ -1,17 +1,16 @@
-# Code Guardrail Installer - GitHub Release
-# Installs from pre-built release artifacts (lightweight, ~10MB)
+# Code Guardrail Installer - GitHub Release (AI-Only Version)
+# Installs from pre-built release artifacts (lightweight, ~7MB)
 
 param(
     [string]$InstallDir = "$env:USERPROFILE\.guardrail",
-    [string]$Version = "0.5.0"
+    [string]$Version = "0.6.0-ai-only"
 )
 
 $ErrorActionPreference = "Stop"
 
 $REPO_URL = "https://github.com/AkashAi7/Guardrail"
 $RELEASE_BASE_URL = "$REPO_URL/releases/download/v$Version"
-$SERVICE_ZIP_URL = "$RELEASE_BASE_URL/guardrail-service-v$Version.zip"
-$EXTENSION_URL = "$RELEASE_BASE_URL/code-guardrail-$Version.vsix"
+$EXTENSION_URL = "$RELEASE_BASE_URL/code-guardrail-ai-only.vsix"
 
 Write-Host ""
 Write-Host "========================================" -ForegroundColor Cyan

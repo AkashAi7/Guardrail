@@ -103,25 +103,48 @@ try {
 }
 
 # ============================================
-# Clone Repository (Optional)
+# Clone Repository (Required for Service)
 # ============================================
 Write-Host ""
-$cloneRepo = Read-Host "📦 Do you want to clone the repository with test files? (y/N)"
+Write-Host "📦 Setting up service..." -ForegroundColor Cyan
 
-if ($cloneRepo -eq "y" -or $cloneRepo -eq "Y") {
-    $repoPath = "$env:USERPROFILE\Guardrail"
-    
-    if (Test-Path $repoPath) {
-        Write-Host "  Repository already exists at: $repoPath" -ForegroundColor Yellow
-    } else {
-        Write-Host "  Cloning repository..." -ForegroundColor Cyan
-        try {
-            git clone $REPO_URL $repoPath 2>&1 | Out-Null
-            Write-Host "✅ Repository cloned to: $repoPath" -ForegroundColor Green
-        } catch {
-            Write-Host "⚠️ Failed to clone repository (git may not be installed)" -ForegroundColor Yellow
-        }
+$repoPath = "$env:USERPROFILE\Guardrail"
+
+if (Test-Path $repoPath) {
+    Write-Host "  Repository already exists at: $repoPath" -ForegroundColor Yellow
+    Write-Host "  Pulling latest changes..." -ForegroundColor Cyan
+    Push-Location $repoPath
+    git pull origin main 2>&1 | Out-Null
+    Pop-Location
+} else {
+    Write-Host "  Cloning repository..." -ForegroundColor Cyan
+    try {
+        git clone $REPO_URL $repoPath 2>&1 | Out-Null
+        Write-Host "✅ Repository cloned to: $repoPath" -ForegroundColor Green
+    } catch {
+        Write-Host "❌ Failed to clone repository" -ForegroundColor Red
+        Write-Host "   Please install git: https://git-scm.com/" -ForegroundColor Yellow
+        exit 1
     }
+}
+
+# Install service dependencies
+Write-Host "  Installing service dependencies..." -ForegroundColor Cyan
+$servicePath = Join-Path $repoPath "service"
+
+if (Test-Path $servicePath) {
+    Push-Location $servicePath
+    
+    Write-Host "    Running npm install..." -ForegroundColor Gray
+    npm install --silent 2>&1 | Out-Null
+    
+    Write-Host "    Building service..." -ForegroundColor Gray
+    npm run build --silent 2>&1 | Out-Null
+    
+    Pop-Location
+    Write-Host "✅ Service ready" -ForegroundColor Green
+} else {
+    Write-Host "⚠️ Service folder not found" -ForegroundColor Yellow
 }
 
 # ============================================
@@ -137,15 +160,18 @@ Write-Host "   The service will auto-start when VS Code launches" -ForegroundCol
 Write-Host ""
 Write-Host "🚀 Next Steps:" -ForegroundColor Yellow
 Write-Host ""
-Write-Host "  1. Restart VS Code (or reload window)" -ForegroundColor White
-Write-Host "     • Press Ctrl+Shift+P → 'Reload Window'" -ForegroundColor Gray
+Write-Host "  1. Open VS Code in the Guardrail directory:" -ForegroundColor White
+Write-Host "     cd $repoPath" -ForegroundColor Gray
+Write-Host "     code ." -ForegroundColor Gray
 Write-Host ""
-Write-Host "  2. Test with sample files:" -ForegroundColor White
-Write-Host "     • Clone repo: git clone $REPO_URL" -ForegroundColor Gray
+Write-Host "  2. The service will auto-start when VS Code opens!" -ForegroundColor White
+Write-Host "     • Look for '🤖 AI' in the status bar" -ForegroundColor Gray
+Write-Host ""
+Write-Host "  3. Test with sample files:" -ForegroundColor White
 Write-Host "     • Open: test-files/test-auth-service.ts" -ForegroundColor Gray
 Write-Host "     • Or: test-files/test-flask-api.py" -ForegroundColor Gray
 Write-Host ""
-Write-Host "  3. Scan entire project:" -ForegroundColor White
+Write-Host "  4. Scan entire project:" -ForegroundColor White
 Write-Host "     • Ctrl+Shift+P → 'Code Guardrail: Scan Entire Project'" -ForegroundColor Gray
 Write-Host ""
 Write-Host "📚 Documentation:" -ForegroundColor Yellow

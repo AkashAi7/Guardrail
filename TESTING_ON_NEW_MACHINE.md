@@ -11,14 +11,25 @@ This guide shows how to set up and test the **AI-only Code Guardrail** extension
 
 ## Installation Steps
 
-### Step 1: Clone the Repository
+### Step 1: Clone the Repository (Required!)
+
+**⚠️ Important**: You must clone the repository first so the service code is available.
 
 ```bash
 git clone https://github.com/AkashAi7/Guardrail.git
 cd Guardrail
 ```
 
-### Step 2: Install the Extension
+### Step 2: Install Service Dependencies
+
+```bash
+cd service
+npm install
+npm run build
+cd ..
+```
+
+### Step 3: Install the Extension
 
 #### Option A: Install from VSIX (Recommended)
 1. Download `code-guardrail-ai-only.vsix` from the [latest release](https://github.com/AkashAi7/Guardrail/releases)

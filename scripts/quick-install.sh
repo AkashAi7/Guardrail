@@ -98,25 +98,47 @@ fi
 rm -f "$TEMP_VSIX"
 
 # ============================================
-# Clone Repository (Optional)
+# Clone Repository (Required for Service)
 # ============================================
 echo ""
-read -p "📦 Do you want to clone the repository with test files? (y/N) " -n 1 -r
-echo
+echo -e "${CYAN}📦 Setting up service...${NC}"
 
-if [[ $REPLY =~ ^[Yy]$ ]]; then
-    REPO_PATH="$HOME/Guardrail"
-    
-    if [ -d "$REPO_PATH" ]; then
-        echo -e "${YELLOW}  Repository already exists at: $REPO_PATH${NC}"
+REPO_PATH="$HOME/Guardrail"
+
+if [ -d "$REPO_PATH" ]; then
+    echo -e "${YELLOW}  Repository already exists at: $REPO_PATH${NC}"
+    echo -e "${CYAN}  Pulling latest changes...${NC}"
+    cd "$REPO_PATH"
+    git pull origin main &> /dev/null
+    cd - > /dev/null
+else
+    echo -e "${CYAN}  Cloning repository...${NC}"
+    if git clone "$REPO_URL" "$REPO_PATH" &> /dev/null; then
+        echo -e "${GREEN}✅ Repository cloned to: $REPO_PATH${NC}"
     else
-        echo -e "${CYAN}  Cloning repository...${NC}"
-        if git clone "$REPO_URL" "$REPO_PATH" &> /dev/null; then
-            echo -e "${GREEN}✅ Repository cloned to: $REPO_PATH${NC}"
-        else
-            echo -e "${YELLOW}⚠️ Failed to clone repository (git may not be installed)${NC}"
-        fi
+        echo -e "${RED}❌ Failed to clone repository${NC}"
+        echo -e "${YELLOW}   Please install git: https://git-scm.com/${NC}"
+        exit 1
     fi
+fi
+
+# Install service dependencies
+echo -e "${CYAN}  Installing service dependencies...${NC}"
+SERVICE_PATH="$REPO_PATH/service"
+
+if [ -d "$SERVICE_PATH" ]; then
+    cd "$SERVICE_PATH"
+    
+    echo "    Running npm install..."
+    npm install --silent &> /dev/null
+    
+    echo "    Building service..."
+    npm run build --silent &> /dev/null
+    
+    cd - > /dev/null
+    echo -e "${GREEN}✅ Service ready${NC}"
+else
+    echo -e "${YELLOW}⚠️ Service folder not found${NC}"
 fi
 
 # ============================================
@@ -132,17 +154,20 @@ echo -e "   The service will auto-start when VS Code launches"
 echo ""
 echo -e "${YELLOW}🚀 Next Steps:${NC}"
 echo ""
-echo "  1. Restart VS Code (or reload window)"
-echo "     • Press Ctrl+Shift+P (Cmd+Shift+P on macOS)"
-echo "     • Type 'Reload Window'"
+echo "  1. Open VS Code in the Guardrail directory:"
+echo "     cd $REPO_PATH"
+echo "     code ."
 echo ""
-echo "  2. Test with sample files:"
-echo "     • Clone repo: git clone $REPO_URL"
+echo "  2. The service will auto-start when VS Code opens!"
+echo "     • Look for '🤖 AI' in the status bar"
+echo ""
+echo "  3. Test with sample files:"
 echo "     • Open: test-files/test-auth-service.ts"
 echo "     • Or: test-files/test-flask-api.py"
 echo ""
-echo "  3. Scan entire project:"
-echo "     • Ctrl+Shift+P → 'Code Guardrail: Scan Entire Project'"
+echo "  4. Scan entire project:"
+echo "     • Ctrl+Shift+P (Cmd+Shift+P on macOS)"
+echo "     • Type: 'Code Guardrail: Scan Entire Project'"
 echo ""
 echo -e "${YELLOW}📚 Documentation:${NC}"
 echo -e "${CYAN}   $REPO_URL${NC}"
