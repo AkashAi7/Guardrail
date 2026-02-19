@@ -1,8 +1,8 @@
 {
   "name": "code-guardrail",
   "displayName": "Code Guardrail",
-  "description": "Security & compliance scanner - import rules from any document (PDF, Word, text) using natural language",
-  "version": "0.4.0",
+  "description": "AI-powered security & compliance scanner - hybrid intelligence with local fallback",
+  "version": "0.5.0",
   "publisher": "AkashAi7",
   "icon": "icon.png",
   "repository": {
@@ -21,6 +21,8 @@
     "compliance",
     "linter",
     "guardrail",
+    "ai",
+    "copilot",
     "sql-injection",
     "xss",
     "secrets"
@@ -29,6 +31,15 @@
     "onStartupFinished"
   ],
   "main": "./out/extension.js",
+  "files": [
+    "out/**",
+    "icon.png",
+    "README.md",
+    "LICENSE",
+    "../service/dist/**",
+    "../service/package.json",
+    "../service/node_modules/**"
+  ],
   "contributes": {
     "commands": [
       {

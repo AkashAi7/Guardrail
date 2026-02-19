@@ -41,9 +41,11 @@ const path = __importStar(require("path"));
 const scanner_1 = require("./scanner");
 const ruleParser_1 = require("./ruleParser");
 const fileImporter_1 = require("./fileImporter");
+const serviceManager_1 = require("./serviceManager");
 let diagnosticCollection;
 let scanner;
 let statusBarItem;
+let serviceManager = null;
 const CONFIG_FILE_NAME = '.guardrail.json';
 const RULES_FOLDER_NAME = '.guardrail';
 const RULES_MD_FILE = 'guardrail-rules.md';
@@ -52,6 +54,18 @@ function activate(context) {
     // Initialize components
     diagnosticCollection = vscode.languages.createDiagnosticCollection('code-guardrail');
     scanner = new scanner_1.SecurityScanner();
+    // Initialize and start the backend service
+    serviceManager = new serviceManager_1.ServiceManager(context);
+    serviceManager.start().then(started => {
+        if (started) {
+            console.log('✅ Guardrail AI service is running');
+        }
+        else {
+            console.log('⚠️ Using local pattern matching only');
+        }
+    }).catch(error => {
+        console.error('Failed to start service:', error);
+    });
     // Load custom rules from workspace
     loadCustomRules();
     // Create status bar
@@ -154,10 +168,14 @@ function activate(context) {
                 case 'about':
                     const builtInCount = scanner.getBuiltInRuleIds().length;
                     const categories = scanner.getCategories();
+                    const aiStatus = serviceManager && serviceManager.isRunning()
+                        ? '🤖 AI-powered analysis: Active'
+                        : '📝 Pattern matching: Active (AI unavailable)';
                     vscode.window.showInformationMessage(`Code Guardrail v${context.extension.packageJSON.version}\n\n` +
                         `✅ ${builtInCount} built-in security rules\n` +
-                        `📂 Categories: ${categories.join(', ')}\n\n` +
-                        `No backend service required - everything runs locally!`, 'OK');
+                        `📂 Categories: ${categories.join(', ')}\n` +
+                        `${aiStatus}\n\n` +
+                        `Hybrid intelligence: AI analysis with local fallback`, 'OK');
                     break;
             }
         }
@@ -716,9 +734,50 @@ function shouldAnalyze(document) {
     const supportedExtensions = ['.ts', '.js', '.tsx', '.jsx', '.py', '.java', '.cs', '.go', '.rb', '.php'];
     return supportedExtensions.some(ext => document.fileName.endsWith(ext));
 }
-function analyzeDocument(document) {
+async function analyzeDocument(document) {
     const text = document.getText();
-    const findings = scanner.scan(text, document.fileName);
+    let findings = [];
+    // Try to use backend service first, fallback to local scanning
+    if (serviceManager && serviceManager.isRunning()) {
+        try {
+            const response = await serviceManager.makeRequest('/analyze', 'POST', {
+                content: text,
+                filePath: document.fileName,
+                language: document.languageId
+            }, 10000); // 10 second timeout
+            // Convert backend response to Finding format
+            if (response.success && response.result && response.result.findings) {
+                findings = response.result.findings.map((finding) => {
+                    // Calculate offsets from line numbers
+                    const lines = text.split('\n');
+                    let startOffset = 0;
+                    for (let i = 0; i < finding.line - 1 && i < lines.length; i++) {
+                        startOffset += lines[i].length + 1; // +1 for newline
+                    }
+                    const endOffset = startOffset + (finding.snippet?.length || 50);
+                    return {
+                        ruleId: finding.id || 'AI-001',
+                        severity: finding.severity || 'MEDIUM',
+                        message: `${finding.title}: ${finding.description}`,
+                        startOffset: startOffset,
+                        endOffset: endOffset,
+                        category: finding.category?.toLowerCase() || 'security',
+                        quickFix: finding.suggestedFix
+                    };
+                });
+                console.log(`✅ AI analysis complete: ${findings.length} issues found`);
+            }
+        }
+        catch (error) {
+            console.warn('Backend analysis failed, using local scanning:', error.message);
+            // Fall through to local scanning
+            findings = scanner.scan(text, document.fileName);
+        }
+    }
+    else {
+        // Use local scanning
+        findings = scanner.scan(text, document.fileName);
+    }
     const diagnostics = findings.map(finding => {
         const startPos = document.positionAt(finding.startOffset);
         const endPos = document.positionAt(finding.endOffset);
@@ -1062,6 +1121,12 @@ try {
     vscode.window.showInformationMessage('✅ Sample test file created! Save it (Ctrl+S) to see security issues highlighted.', 'Got it');
 }
 function deactivate() {
+    // Stop the backend service
+    if (serviceManager) {
+        serviceManager.stop().then(() => {
+            console.log('✅ Guardrail service stopped');
+        });
+    }
     if (diagnosticCollection) {
         diagnosticCollection.dispose();
     }

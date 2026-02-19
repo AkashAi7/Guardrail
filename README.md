@@ -1,23 +1,43 @@
 # 🛡️ Code Guardrail
 
-> **Real-time security & compliance analysis for VS Code** - No backend required, just install and code!
+> **AI-powered security & compliance analysis for VS Code** - Hybrid intelligence with local fallback!
 
 [![Version](https://img.shields.io/badge/version-0.4.0-blue.svg)](https://github.com/AkashAi7/Guardrail/releases)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![VS Code](https://img.shields.io/badge/VS%20Code-1.85%2B-007ACC.svg)](https://code.visualstudio.com/)
 
-**Code Guardrail** detects security vulnerabilities, compliance violations, and code quality issues **as you type** - preventing problems before they reach production.
+**Code Guardrail** uses **hybrid intelligence** to detect security vulnerabilities, compliance violations, and code quality issues **as you type** - preventing problems before they reach production.
 
 ---
 
 ## ✨ Features
 
+- 🤖 **AI-Powered Analysis** - GitHub Copilot SDK integration for intelligent code review
 - 🔒 **Security Scanning** - Detects hardcoded secrets, SQL injection, XSS, weak crypto
 - 📋 **Compliance Checking** - GDPR, HIPAA, SOC2, PCI-DSS rules built-in
 - ⚡ **Real-Time Feedback** - Issues highlighted instantly on file save
+- 🔄 **Hybrid Intelligence** - AI analysis with automatic fallback to local patterns
 - 🎯 **Zero Configuration** - Works out of the box with 20+ built-in rules
 - 🏢 **Organization Rules** - Import and share custom rules across teams
 - 🌐 **Multi-Language** - TypeScript, JavaScript, Python, Java, C#, Go, Ruby, PHP
+
+---
+
+## 🧠 Hybrid Intelligence
+
+Code Guardrail uses a **two-tier analysis approach**:
+
+1. **🤖 AI Analysis (Primary)** - GitHub Copilot SDK analyzes code contextually
+   - Understands code intent and semantics
+   - Detects complex security patterns
+   - Provides intelligent fix suggestions
+   
+2. **📝 Pattern Matching (Fallback)** - Local regex-based scanning
+   - Works offline
+   - Zero latency
+   - 20+ security rules
+
+**The service auto-starts on extension activation - no manual setup required!**
 
 ---
 
@@ -46,7 +66,7 @@ code --list-extensions | Select-String "guardrail"
 
 ## 🎯 How It Works
 
-**1. Install** → Extension activates automatically  
+**1. Install** → Extension and AI service activate automatically  
 **2. Code** → Write code normally  
 **3. Save** → Issues highlighted instantly (red/yellow squiggles)  
 **4. Fix** → Click issue to see details and remediation
