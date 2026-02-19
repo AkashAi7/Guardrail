@@ -48,6 +48,11 @@ export function activate(context: vscode.ExtensionContext) {
     const showQuickPickCmd = vscode.commands.registerCommand('codeGuardrail.showQuickPick', async () => {
         const items = [
             {
+                label: '$(list-unordered) View Issues Panel',
+                description: 'Show all detected issues with quick fixes',
+                action: 'show-issues'
+            },
+            {
                 label: '$(play) Test with Sample Code',
                 description: 'Create a test file with intentional security issues',
                 action: 'test'
@@ -95,6 +100,9 @@ export function activate(context: vscode.ExtensionContext) {
 
         if (selected) {
             switch (selected.action) {
+                case 'show-issues':
+                    vscode.commands.executeCommand('codeGuardrail.showIssuesPanel');
+                    break;
                 case 'test':
                     createSampleTestFile();
                     break;
@@ -511,6 +519,11 @@ const apiKey = process.env.COMPANY_API_KEY;
         }
     });
 
+    // Show Issues Panel with quick fixes
+    const showIssuesPanelCmd = vscode.commands.registerCommand('codeGuardrail.showIssuesPanel', () => {
+        showIssuesPanel(context);
+    });
+
     // Import rules from file (PDF, Word, MD, TXT)
     const importCmd = vscode.commands.registerCommand('codeGuardrail.importRules', async () => {
         const workspaceFolders = vscode.workspace.workspaceFolders;
@@ -629,6 +642,7 @@ const apiKey = process.env.COMPANY_API_KEY;
         analyzeCmd,
         clearCmd,
         showQuickPickCmd,
+        showIssuesPanelCmd,
         reloadCmd,
         initCmd,
         importCmd,
@@ -793,6 +807,289 @@ function mapSeverity(severity: string): vscode.DiagnosticSeverity {
         default:
             return vscode.DiagnosticSeverity.Hint;
     }
+}
+
+function showIssuesPanel(context: vscode.ExtensionContext) {
+    const panel = vscode.window.createWebviewPanel(
+        'guardrailIssues',
+        '🛡️ Code Guardrail - Security Issues',
+        vscode.ViewColumn.Two,
+        {
+            enableScripts: true,
+            retainContextWhenHidden: true
+        }
+    );
+
+    // Get all diagnostics from all documents
+    const allIssues: Array<{
+        file: string;
+        line: number;
+        severity: string;
+        message: string;
+        code: string;
+        quickFix: string;
+    }> = [];
+
+    // Collect issues from all documents
+    vscode.workspace.textDocuments.forEach(doc => {
+        const diagnostics = diagnosticCollection.get(doc.uri);
+        if (diagnostics && diagnostics.length > 0) {
+            diagnostics.forEach(diag => {
+                const relativePath = vscode.workspace.asRelativePath(doc.uri);
+                const severityLabel = diag.severity === vscode.DiagnosticSeverity.Error ? 'HIGH' :
+                                     diag.severity === vscode.DiagnosticSeverity.Warning ? 'MEDIUM' : 'LOW';
+                
+                // Generate quick fix based on issue type
+                let quickFix = 'Review and fix manually';
+                const msg = diag.message.toLowerCase();
+                
+                if (msg.includes('api key') || msg.includes('secret') || msg.includes('password')) {
+                    quickFix = 'Move to environment variable: process.env.API_KEY';
+                } else if (msg.includes('sql injection')) {
+                    quickFix = 'Use parameterized queries or prepared statements';
+                } else if (msg.includes('xss') || msg.includes('innerhtml')) {
+                    quickFix = 'Sanitize user input or use textContent instead';
+                } else if (msg.includes('md5') || msg.includes('sha1')) {
+                    quickFix = 'Use SHA-256 or stronger: crypto.createHash("sha256")';
+                } else if (msg.includes('empty catch')) {
+                    quickFix = 'Add error logging: console.error(err) or throw err';
+                } else if (msg.includes('eval')) {
+                    quickFix = 'Avoid eval(). Use JSON.parse() or safer alternatives';
+                } else if (msg.includes('console.log')) {
+                    quickFix = 'Remove console.log or use proper logging library';
+                }
+
+                allIssues.push({
+                    file: relativePath,
+                    line: diag.range.start.line + 1,
+                    severity: severityLabel,
+                    message: diag.message,
+                    code: diag.code?.toString() || 'GUARDRAIL',
+                    quickFix: quickFix
+                });
+            });
+        }
+    });
+
+    // Generate HTML content
+    panel.webview.html = getIssuesPanelHtml(allIssues);
+
+    // Handle messages from webview
+    panel.webview.onDidReceiveMessage(
+        message => {
+            if (message.command === 'openFile') {
+                const uri = vscode.Uri.file(vscode.workspace.workspaceFolders![0].uri.fsPath + '/' + message.file);
+                vscode.window.showTextDocument(uri).then(editor => {
+                    const position = new vscode.Position(message.line - 1, 0);
+                    editor.selection = new vscode.Selection(position, position);
+                    editor.revealRange(new vscode.Range(position, position), vscode.TextEditorRevealType.InCenter);
+                });
+            }
+        },
+        undefined,
+        context.subscriptions
+    );
+}
+
+function getIssuesPanelHtml(issues: Array<{file: string; line: number; severity: string; message: string; code: string; quickFix: string}>): string {
+    const criticalIssues = issues.filter(i => i.severity === 'HIGH');
+    const mediumIssues = issues.filter(i => i.severity === 'MEDIUM');
+    const lowIssues = issues.filter(i => i.severity === 'LOW');
+
+    const renderIssue = (issue: any, index: number) => `
+        <div class="issue ${issue.severity.toLowerCase()}">
+            <div class="issue-header">
+                <span class="severity-badge ${issue.severity.toLowerCase()}">${issue.severity}</span>
+                <span class="issue-code">${issue.code}</span>
+                <span class="issue-location" onclick="openFile('${issue.file}', ${issue.line})">
+                    📄 ${issue.file}:${issue.line}
+                </span>
+            </div>
+            <div class="issue-message">${issue.message}</div>
+            <div class="quick-fix">
+                <strong>💡 Quick Fix:</strong> ${issue.quickFix}
+            </div>
+        </div>
+    `;
+
+    return `<!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <style>
+            body {
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+                padding: 20px;
+                color: var(--vscode-foreground);
+                background: var(--vscode-editor-background);
+            }
+            .header {
+                margin-bottom: 30px;
+                border-bottom: 2px solid var(--vscode-panel-border);
+                padding-bottom: 15px;
+            }
+            .header h1 {
+                margin: 0 0 10px 0;
+                color: var(--vscode-foreground);
+            }
+            .summary {
+                display: flex;
+                gap: 20px;
+                margin: 15px 0;
+            }
+            .summary-item {
+                padding: 10px 20px;
+                border-radius: 8px;
+                font-weight: bold;
+            }
+            .critical { background: rgba(255, 0, 0, 0.15); color: #ff6b6b; }
+            .medium { background: rgba(255, 165, 0, 0.15); color: #ffa726; }
+            .low { background: rgba(100, 149, 237, 0.15); color: #64b5f6; }
+            .clean { background: rgba(0, 255, 0, 0.15); color: #66bb6a; }
+            
+            .section {
+                margin: 30px 0;
+            }
+            .section h2 {
+                color: var(--vscode-foreground);
+                margin-bottom: 15px;
+            }
+            .issue {
+                background: var(--vscode-editor-background);
+                border: 1px solid var(--vscode-panel-border);
+                border-left: 4px solid;
+                border-radius: 6px;
+                padding: 15px;
+                margin: 10px 0;
+                transition: transform 0.2s;
+            }
+            .issue:hover {
+                transform: translateX(5px);
+                box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+            }
+            .issue.high { border-left-color: #ff6b6b; }
+            .issue.medium { border-left-color: #ffa726; }
+            .issue.low { border-left-color: #64b5f6; }
+            
+            .issue-header {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                margin-bottom: 10px;
+                font-size: 13px;
+            }
+            .severity-badge {
+                padding: 4px 10px;
+                border-radius: 4px;
+                font-weight: bold;
+                font-size: 11px;
+                text-transform: uppercase;
+            }
+            .severity-badge.high { background: #ff6b6b; color: white; }
+            .severity-badge.medium { background: #ffa726; color: white; }
+            .severity-badge.low { background: #64b5f6; color: white; }
+            
+            .issue-code {
+                font-family: 'Courier New', monospace;
+                background: var(--vscode-textCodeBlock-background);
+                padding: 2px 8px;
+                border-radius: 3px;
+                font-size: 11px;
+            }
+            .issue-location {
+                color: var(--vscode-textLink-foreground);
+                cursor: pointer;
+                text-decoration: underline;
+            }
+            .issue-location:hover {
+                color: var(--vscode-textLink-activeForeground);
+            }
+            .issue-message {
+                margin: 10px 0;
+                line-height: 1.5;
+            }
+            .quick-fix {
+                background: var(--vscode-textBlockQuote-background);
+                border-left: 3px solid var(--vscode-textBlockQuote-border);
+                padding: 10px;
+                margin-top: 10px;
+                font-size: 13px;
+                border-radius: 4px;
+            }
+            .quick-fix strong {
+                color: var(--vscode-textLink-foreground);
+            }
+            .empty-state {
+                text-align: center;
+                padding: 60px 20px;
+                color: var(--vscode-descriptionForeground);
+            }
+            .empty-state h2 {
+                color: #66bb6a;
+                margin-bottom: 10px;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="header">
+            <h1>🛡️ Code Guardrail - Security Analysis</h1>
+            <div class="summary">
+                <div class="summary-item critical">
+                    🔴 Critical: ${criticalIssues.length}
+                </div>
+                <div class="summary-item medium">
+                    🟡 Medium: ${mediumIssues.length}
+                </div>
+                <div class="summary-item low">
+                    🔵 Low: ${lowIssues.length}
+                </div>
+                ${issues.length === 0 ? '<div class="summary-item clean">✅ No Issues Found!</div>' : ''}
+            </div>
+        </div>
+
+        ${issues.length === 0 ? `
+            <div class="empty-state">
+                <h2>✨ All Clear!</h2>
+                <p>No security issues detected in your code.</p>
+                <p>Keep up the good work! 🎉</p>
+            </div>
+        ` : ''}
+
+        ${criticalIssues.length > 0 ? `
+            <div class="section">
+                <h2>🔴 Critical Issues (${criticalIssues.length})</h2>
+                ${criticalIssues.map((issue, i) => renderIssue(issue, i)).join('')}
+            </div>
+        ` : ''}
+
+        ${mediumIssues.length > 0 ? `
+            <div class="section">
+                <h2>🟡 Medium Priority (${mediumIssues.length})</h2>
+                ${mediumIssues.map((issue, i) => renderIssue(issue, i)).join('')}
+            </div>
+        ` : ''}
+
+        ${lowIssues.length > 0 ? `
+            <div class="section">
+                <h2>🔵 Low Priority (${lowIssues.length})</h2>
+                ${lowIssues.map((issue, i) => renderIssue(issue, i)).join('')}
+            </div>
+        ` : ''}
+
+        <script>
+            const vscode = acquireVsCodeApi();
+            
+            function openFile(file, line) {
+                vscode.postMessage({
+                    command: 'openFile',
+                    file: file,
+                    line: line
+                });
+            }
+        </script>
+    </body>
+    </html>`;
 }
 
 async function createSampleTestFile() {
