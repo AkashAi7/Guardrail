@@ -1,181 +1,96 @@
 # 🛡️ Code Guardrail - Real-Time Security & Compliance Analysis
 
-> Catch security vulnerabilities and compliance issues **as you type** with AI-powered code analysis!
+> Catch security vulnerabilities and compliance issues **as you code** with built-in pattern matching!
 
-Real-time intelligent code analysis using **GitHub Copilot** or **your own API keys** for security, compliance, and best practices.
+**✨ NEW: Now works completely standalone - no backend service required!**
+
+Real-time code scanning with 20+ built-in security rules. Zero configuration, zero dependencies, just install and code!
 
 ## ✨ Features
 
 - **🛡️ Real-Time Analysis:** Get instant feedback as you code
-- **🤖 Hybrid AI:** Uses GitHub Copilot ($0) OR Bring Your Own Key (~$0.03/1K)
-- **📋 Compliance Aware:** Built-in rules for GDPR, PCI-DSS, HIPAA, SOC2
+- **⚡ Zero Setup:** Install and start coding - that's it!
 - **🔒 Security First:** Detects hardcoded secrets, SQL injection, XSS, and more
-- **💡 Smart Fixes:** Auto-fix suggestions with one click
-- **📚 Educational:** Learn why issues matter with detailed explanations
-- **🎯 Zero Config:** Auto-detects your setup and works out of the box
-
-## 🎯 Hybrid Provider Support
-
-**The extension automatically detects and uses the best option for you:**
-
-### ✅ Option 1: GitHub Copilot (Free!)
-- If you have GitHub Copilot, the extension uses it automatically
-- **Zero additional cost** - leverages your existing subscription
-- No API keys needed
-
-### ✅ Option 2: Bring Your Own Key (~$0.03/1K tokens)
-- OpenAI (GPT-4o, GPT-4, GPT-3.5)
-- Anthropic (Claude 3.5 Sonnet, Claude 3 Opus)
-- Azure OpenAI (your deployment)
-- Full control over costs and data
-
-## 📦 Installation
-
-### Recommended: One-Click Installer (Windows)
-
-The easiest way to get started is with our all-in-one installer:
-
-1. **Download** the installer from [GitHub Releases](https://github.com/AkashAi7/Guardrail/releases)
-2. **Run** this command:
-   ```powershell
-   powershell -ExecutionPolicy Bypass -File install.ps1
-   ```
-3. **Restart VS Code**
-4. **Done!** Extension and backend service are configured
-
-**The installer automatically:**
-- ✅ Detects if you have GitHub Copilot
-- ✅ Prompts for API keys if needed
-- ✅ Installs and starts the backend service
-- ✅ Installs this extension
-
-### Manual Installation (Advanced)
-
-If you prefer manual setup or already have the backend service:
-
-1. **Install the Extension** (you're here!)
-2. **Install Backend Service:**
-   ```bash
-   git clone https://github.com/AkashAi7/Guardrail.git
-   cd Guardrail/service
-   npm install
-   npm run build
-   npm start
-   ```
-3. **Configure Provider** (optional if using Copilot):
-   - Copy `service/.env.example` to `service/.env`
-   - Add your API keys if using BYOK
+- **📋 Compliance Aware:** Built-in rules for GDPR, PCI-DSS, HIPAA, SOC2
+- **💡 Educational:** Learn why issues matter with detailed explanations
+- **🎯 Standalone:** Everything runs locally in VS Code - no external service needed
+- **📝 Customizable:** Add your own rules using simple markdown files
 
 ## 🚀 Quick Start
 
-Once installed, the extension works automatically!
+### Installation
 
-### Analyze Code
+1. Install from VS Code Marketplace or from `.vsix` file:
+   ```bash
+   code --install-extension code-guardrail-0.4.0.vsix
+   ```
 
-- **Automatic:** Issues appear as you type (enabled by default)
-- **Manual:** Press `Ctrl+Shift+G` (Windows/Linux) or `Cmd+Shift+G` (Mac)
-- **Command Palette:** `Code Guardrail: Analyze Current File`
+2. **That's it!** No setup, no configuration, no backend service needed.
 
-### Check Backend Status
+3. **Test it works:**
+   - Click the shield icon (🛡️) in the status bar
+   - Select "Test with Sample Code"  
+   - Save the file (`Ctrl+S`)
+   - See security issues highlighted!
 
-- Look at the status bar (bottom right): "🛡️ Guardrail: Ready"
-- Or run: `Code Guardrail: Check Service Status`
+### What You Get
 
-## Features in Detail
-
-### Real-Time Diagnostics
-
-Issues appear directly in your editor with squiggly underlines:
-- 🔴 **Red (Error):** HIGH severity - critical security or compliance issues
-- 🟡 **Yellow (Warning):** MEDIUM severity - important concerns
-- 🔵 **Blue (Info):** LOW severity - improvements recommended
-- 💚 **Green (Hint):** INFO - suggestions and tips
-
-### Quick Fixes
-
-Hover over an issue and click the lightbulb (💡) to see available actions:
-- **Fix:** Apply suggested code fix automatically
-- **Explain:** View detailed explanation with examples
-- **View References:** See OWASP, CWE, and compliance docs
-- **Ignore:** Add ignore comment for false positives
-
-### Governance Rules
-
-Built-in rules cover:
-
-**Security:**
+**20+ Built-in Security Rules:**
 - Hardcoded secrets and credentials
 - SQL injection vulnerabilities
 - Cross-site scripting (XSS)
-- Insecure cryptography
-- Authentication bypasses
+- Command injection
+- Path traversal
+- Weak cryptography
+- PII exposure
+- And more!
 
-**Compliance:**
-- GDPR personal data handling
-- HIPAA PHI protection
-- PCI-DSS payment data security
-- SOC2 access controls
+**No Dependencies:**
+- No Node.js required
+- No backend service required
+- No API keys required
+- No internet connection required
 
-**Best Practices:**
-- Async error handling
-- Input validation
-- Code quality patterns
+Everything runs directly in VS Code using efficient pattern matching.
 
-### Workspace Analysis
+---
 
-Analyze your entire workspace:
-1. Open Command Palette (`Ctrl+Shift+P`)
-2. Run: `Code Guardrail: Analyze Entire Workspace`
-3. View all issues in the Problems panel
+## 🎯 Two Usage Modes
 
-## Configuration
+### Mode 1: Standalone (Recommended for most users) ✅
 
-### Extension Settings
+**What you're using right now!**
 
-Access via: File → Preferences → Settings → Extensions → Code Guardrail
+- 20+ built-in security and compliance rules
+- Pattern-based detection (regex)
+- Fast and reliable
+- Works offline
+- **No setup required**
 
-#### Basic Settings
+This mode is perfect for:
+- Individual developers
+- Quick security checks
+- Learning security best practices
+- Teams without infrastructure setup
 
-- **`codeGuardrail.enabled`** (default: `true`)
-  - Enable/disable the extension
+### Mode 2: Advanced with Backend Service (Optional)
 
-- **`codeGuardrail.serviceUrl`** (default: `http://localhost:3000`)
-  - URL of the guardrail service
+For AI-powered semantic analysis using GitHub Copilot or OpenAI.
 
-- **`codeGuardrail.autoAnalyzeOnSave`** (default: `true`)
-  - Automatically analyze when saving files
+**Requires:**
+- Node.js 18+
+- Backend service running
+- GitHub Copilot OR API keys
 
-- **`codeGuardrail.autoAnalyzeOnType`** (default: `false`)
-  - Analyze while typing (may be slower)
+**Provides:**
+- LLM-powered semantic analysis
+- Context-aware detection
+- Natural language rule definitions
+- Import rules from PDF/Word documents
 
-#### Advanced Settings
+See the [Full Installation Guide](../INSTALL.md) for backend setup.
 
-- **`codeGuardrail.severityFilter`** (default: `["HIGH", "MEDIUM", "LOW", "INFO"]`)
-  - Which severity levels to display
-
-- **`codeGuardrail.ignoredFiles`** (default: `["**/node_modules/**", "**/dist/**", ...]`)
-  - Glob patterns for files to ignore
-
-- **`codeGuardrail.autoStartService`** (default: `true`)
-  - Automatically start service on extension activation
-
-- **`codeGuardrail.servicePath`** (default: auto-detected)
-  - Custom path to the guardrail service directory
-
-### Example Configuration
-
-```json
-{
-  "codeGuardrail.enabled": true,
-  "codeGuardrail.autoAnalyzeOnSave": true,
-  "codeGuardrail.severityFilter": ["HIGH", "MEDIUM"],
-  "codeGuardrail.ignoredFiles": [
-    "**/node_modules/**",
-    "**/test/**",
-    "**/*.test.ts"
-  ]
-}
-```
+---
 
 ## Commands
 
@@ -268,37 +183,98 @@ See [Governance README](../service/governance/README.md) for details.
 
 ## Troubleshooting
 
-### Service Not Starting
+### Extension Not Working?
 
-**Problem:** "Code Guardrail service is not running"
+**First, verify it's actually not working:**
+
+1. Click the shield icon in status bar → "Test with Sample Code"
+2. Save the generated file (`Ctrl+S`)
+3. You should see 5+ security issues highlighted
+
+If no issues appear, see detailed troubleshooting below.
+
+---
+
+### No Issues Appearing
+
+**Symptom:** Saved files but no squiggly lines or problems showing
+
+**Common causes:**
+
+1. **Your code is actually clean!** ✅  
+   - The extension only shows issues when it detects security problems
+   - Try the test sample (click shield icon → "Test with Sample Code")
+
+2. **File type not supported:**
+   - Supported: `.ts`, `.js`, `.tsx`, `.jsx`, `.py`, `.java`, `.cs`, `.go`, `.rb`, `.php`
+   - Check your file extension
+
+3. **Problems panel closed:**
+   - Press `Ctrl+Shift+M` to open Problems panel
+
+4. **Auto-analyze disabled:**
+   - Settings → Search "codeGuardrail"
+   - Ensure `autoAnalyzeOnSave` is `true`
+
+---
+
+### Extension Doesn't Activate
+
+**Symptom:** No shield icon in status bar, no activation message
 
 **Solutions:**
-1. Check if port 3000 is available:
+
+1. **Reload VS Code:**
+   - `Ctrl+Shift+P` → "Developer: Reload Window"
+
+2. **Check if installed:**
+   - Extensions view (`Ctrl+Shift+X`)
+   - Search "Code Guardrail"
+   - Should be installed and enabled
+
+3. **Check VS Code version:**
+   - Requires VS Code 1.80.0+
+   - Help → About
+
+4. **Check for errors:**
+   - View → Output → Select "Code Guardrail"
+
+---
+
+### Windows-Specific Issues
+
+**See the comprehensive [Windows Troubleshooting Guide](../WINDOWS_TROUBLESHOOTING.md) for:**
+- Permission errors
+- Antivirus blocking
+- Path issues
+- And more Windows-specific solutions
+
+---
+
+### Service Not Starting (Advanced Mode Only)
+
+**Note:** Basic standalone mode doesn't need a service!
+
+If you're using the optional backend service:
+
+1. **Check if port 3000 is available:**
    ```bash
    netstat -ano | findstr :3000  # Windows
    lsof -i :3000                  # Mac/Linux
    ```
 
-2. Manually start the service:
+2. **Start service manually:**
    ```bash
    cd service
    npm install
    npm start
    ```
 
-3. Configure a different port:
-   - Update `.env` in service: `PORT=3001`
+3. **Use different port:**
+   - Update `.env`: `PORT=3001`
    - Update extension setting: `codeGuardrail.serviceUrl`
 
-### No Issues Detected
-
-**Problem:** Code has issues but nothing appears
-
-**Check:**
-1. Extension is enabled: `codeGuardrail.enabled: true`
-2. File is not in ignored patterns
-3. Severity filter includes the issue level
-4. Check service logs: View → Output → "Code Guardrail Service"
+---
 
 ### Performance Issues
 
