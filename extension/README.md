@@ -1,6 +1,6 @@
 # 🛡️ Code Guardrail - Real-Time Security & Compliance Analysis
 
-> Catch security vulnerabilities and compliance issues **as you type** with built-in pattern matching!
+> Catch security vulnerabilities and compliance issues **as you code** with built-in pattern matching!
 
 **✨ NEW: Now works completely standalone - no backend service required!**
 
