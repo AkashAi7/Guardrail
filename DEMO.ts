@@ -74,10 +74,9 @@ export const getUserVulnerable = async (req: Request, res: Response) => {
 
 
 
+const password1 = "admin123";
+const apiKey2 = "sk-1234567890";
 
-const APIkairos = "sk-pr1oj-abc123def456ghi789";
+const APIkey = "sk-pr1oj-abc123def456ghi789";
 
 
-
-const password = "admin123";
-const apiKey = "sk-1234567890";

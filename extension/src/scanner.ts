@@ -17,8 +17,27 @@ interface SecurityRule {
     languages?: string[];
 }
 
+// JSON-serializable rule format for .guardrail.json
+export interface CustomRuleConfig {
+    id: string;
+    name: string;
+    pattern: string;  // Regex as string
+    flags?: string;   // Regex flags (default: 'gi')
+    severity: 'HIGH' | 'MEDIUM' | 'LOW' | 'INFO';
+    message: string;
+    category: string;
+    languages?: string[];
+    enabled?: boolean;
+}
+
+export interface GuardrailConfig {
+    rules?: CustomRuleConfig[];
+    disabledRules?: string[];  // IDs of built-in rules to disable
+    enabledCategories?: string[];  // If set, only scan these categories
+}
+
 export class SecurityScanner {
-    private rules: SecurityRule[] = [
+    private builtInRules: SecurityRule[] = [
         // === SECRETS & CREDENTIALS ===
         {
             id: 'SEC001',
@@ -239,11 +258,65 @@ export class SecurityScanner {
         }
     ];
 
+    private customRules: SecurityRule[] = [];
+    private disabledRules: Set<string> = new Set();
+    private enabledCategories: Set<string> | null = null;
+
+    loadCustomRules(config: GuardrailConfig): void {
+        // Load disabled rules
+        if (config.disabledRules) {
+            this.disabledRules = new Set(config.disabledRules);
+        }
+
+        // Load enabled categories filter
+        if (config.enabledCategories && config.enabledCategories.length > 0) {
+            this.enabledCategories = new Set(config.enabledCategories);
+        }
+
+        // Convert custom rules from JSON config to SecurityRule
+        if (config.rules) {
+            this.customRules = config.rules
+                .filter(r => r.enabled !== false)
+                .map(r => ({
+                    id: r.id,
+                    name: r.name,
+                    pattern: new RegExp(r.pattern, r.flags || 'gi'),
+                    severity: r.severity,
+                    message: r.message,
+                    category: r.category,
+                    languages: r.languages
+                }));
+        }
+    }
+
+    clearCustomRules(): void {
+        this.customRules = [];
+        this.disabledRules.clear();
+        this.enabledCategories = null;
+    }
+
+    private getAllRules(): SecurityRule[] {
+        const allRules = [...this.builtInRules, ...this.customRules];
+        
+        return allRules.filter(rule => {
+            // Check if rule is disabled
+            if (this.disabledRules.has(rule.id)) {
+                return false;
+            }
+            // Check category filter
+            if (this.enabledCategories && !this.enabledCategories.has(rule.category)) {
+                return false;
+            }
+            return true;
+        });
+    }
+
     scan(code: string, fileName: string): Finding[] {
         const findings: Finding[] = [];
         const fileExt = '.' + fileName.split('.').pop()?.toLowerCase();
+        const rules = this.getAllRules();
 
-        for (const rule of this.rules) {
+        for (const rule of rules) {
             // Skip rules not applicable to this file type
             if (rule.languages && !rule.languages.includes(fileExt)) {
                 continue;
@@ -266,5 +339,17 @@ export class SecurityScanner {
         }
 
         return findings;
+    }
+
+    getBuiltInRuleIds(): string[] {
+        return this.builtInRules.map(r => r.id);
+    }
+
+    getCategories(): string[] {
+        const categories = new Set<string>();
+        for (const rule of this.builtInRules) {
+            categories.add(rule.category);
+        }
+        return Array.from(categories);
     }
 }

@@ -36,15 +36,20 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.activate = activate;
 exports.deactivate = deactivate;
 const vscode = __importStar(require("vscode"));
+const fs = __importStar(require("fs"));
+const path = __importStar(require("path"));
 const scanner_1 = require("./scanner");
 let diagnosticCollection;
 let scanner;
 let statusBarItem;
+const CONFIG_FILE_NAME = '.guardrail.json';
 function activate(context) {
     console.log('Code Guardrail activating...');
     // Initialize components
     diagnosticCollection = vscode.languages.createDiagnosticCollection('code-guardrail');
     scanner = new scanner_1.SecurityScanner();
+    // Load custom rules from workspace
+    loadCustomRules();
     // Create status bar
     statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
     statusBarItem.text = '$(shield) Guardrail';
@@ -64,8 +69,26 @@ function activate(context) {
         diagnosticCollection.clear();
         vscode.window.showInformationMessage('Cleared all Code Guardrail issues');
     });
+    const reloadCmd = vscode.commands.registerCommand('codeGuardrail.reloadRules', () => {
+        loadCustomRules();
+        // Re-analyze all open files
+        vscode.workspace.textDocuments.forEach(doc => {
+            if (shouldAnalyze(doc)) {
+                analyzeDocument(doc);
+            }
+        });
+        vscode.window.showInformationMessage('Code Guardrail rules reloaded');
+    });
+    const initCmd = vscode.commands.registerCommand('codeGuardrail.initConfig', () => {
+        createDefaultConfig();
+    });
     // Register on save handler
     const onSave = vscode.workspace.onDidSaveTextDocument((document) => {
+        // Reload rules if config file is saved
+        if (document.fileName.endsWith(CONFIG_FILE_NAME)) {
+            loadCustomRules();
+            vscode.window.showInformationMessage('Code Guardrail rules reloaded');
+        }
         if (shouldAnalyze(document)) {
             analyzeDocument(document);
         }
@@ -80,9 +103,66 @@ function activate(context) {
     if (vscode.window.activeTextEditor) {
         analyzeDocument(vscode.window.activeTextEditor.document);
     }
-    context.subscriptions.push(diagnosticCollection, statusBarItem, analyzeCmd, clearCmd, onSave, onOpen);
+    context.subscriptions.push(diagnosticCollection, statusBarItem, analyzeCmd, clearCmd, reloadCmd, initCmd, onSave, onOpen);
     vscode.window.showInformationMessage('Code Guardrail is active! Scanning for security issues.');
     console.log('Code Guardrail activated successfully');
+}
+function loadCustomRules() {
+    const workspaceFolders = vscode.workspace.workspaceFolders;
+    if (!workspaceFolders) {
+        return;
+    }
+    scanner.clearCustomRules();
+    for (const folder of workspaceFolders) {
+        const configPath = path.join(folder.uri.fsPath, CONFIG_FILE_NAME);
+        if (fs.existsSync(configPath)) {
+            try {
+                const configContent = fs.readFileSync(configPath, 'utf8');
+                const config = JSON.parse(configContent);
+                scanner.loadCustomRules(config);
+                console.log(`Loaded custom rules from ${configPath}`);
+            }
+            catch (error) {
+                console.error(`Error loading ${configPath}:`, error);
+                vscode.window.showErrorMessage(`Error loading ${CONFIG_FILE_NAME}: ${error}`);
+            }
+        }
+    }
+}
+function createDefaultConfig() {
+    const workspaceFolders = vscode.workspace.workspaceFolders;
+    if (!workspaceFolders) {
+        vscode.window.showWarningMessage('No workspace folder open');
+        return;
+    }
+    const configPath = path.join(workspaceFolders[0].uri.fsPath, CONFIG_FILE_NAME);
+    if (fs.existsSync(configPath)) {
+        vscode.window.showWarningMessage(`${CONFIG_FILE_NAME} already exists`);
+        vscode.workspace.openTextDocument(configPath).then(doc => {
+            vscode.window.showTextDocument(doc);
+        });
+        return;
+    }
+    const defaultConfig = {
+        rules: [
+            {
+                id: 'CUSTOM001',
+                name: 'Example Custom Rule',
+                pattern: 'TODO:\\s*SECURITY',
+                flags: 'gi',
+                severity: 'MEDIUM',
+                message: 'Security-related TODO found. Review and address.',
+                category: 'custom'
+            }
+        ],
+        disabledRules: [],
+        enabledCategories: []
+    };
+    fs.writeFileSync(configPath, JSON.stringify(defaultConfig, null, 2));
+    vscode.workspace.openTextDocument(configPath).then(doc => {
+        vscode.window.showTextDocument(doc);
+    });
+    vscode.window.showInformationMessage(`Created ${CONFIG_FILE_NAME} with example rule`);
 }
 function shouldAnalyze(document) {
     if (document.uri.scheme !== 'file')

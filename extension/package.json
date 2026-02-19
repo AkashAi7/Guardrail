@@ -38,6 +38,14 @@
       {
         "command": "codeGuardrail.clearDiagnostics",
         "title": "Code Guardrail: Clear All Issues"
+      },
+      {
+        "command": "codeGuardrail.reloadRules",
+        "title": "Code Guardrail: Reload Rules"
+      },
+      {
+        "command": "codeGuardrail.initConfig",
+        "title": "Code Guardrail: Create Config File"
       }
     ]
   },

@@ -3,7 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.SecurityScanner = void 0;
 class SecurityScanner {
     constructor() {
-        this.rules = [
+        this.builtInRules = [
             // === SECRETS & CREDENTIALS ===
             {
                 id: 'SEC001',
@@ -216,11 +216,58 @@ class SecurityScanner {
                 category: 'injection'
             }
         ];
+        this.customRules = [];
+        this.disabledRules = new Set();
+        this.enabledCategories = null;
+    }
+    loadCustomRules(config) {
+        // Load disabled rules
+        if (config.disabledRules) {
+            this.disabledRules = new Set(config.disabledRules);
+        }
+        // Load enabled categories filter
+        if (config.enabledCategories && config.enabledCategories.length > 0) {
+            this.enabledCategories = new Set(config.enabledCategories);
+        }
+        // Convert custom rules from JSON config to SecurityRule
+        if (config.rules) {
+            this.customRules = config.rules
+                .filter(r => r.enabled !== false)
+                .map(r => ({
+                id: r.id,
+                name: r.name,
+                pattern: new RegExp(r.pattern, r.flags || 'gi'),
+                severity: r.severity,
+                message: r.message,
+                category: r.category,
+                languages: r.languages
+            }));
+        }
+    }
+    clearCustomRules() {
+        this.customRules = [];
+        this.disabledRules.clear();
+        this.enabledCategories = null;
+    }
+    getAllRules() {
+        const allRules = [...this.builtInRules, ...this.customRules];
+        return allRules.filter(rule => {
+            // Check if rule is disabled
+            if (this.disabledRules.has(rule.id)) {
+                return false;
+            }
+            // Check category filter
+            if (this.enabledCategories && !this.enabledCategories.has(rule.category)) {
+                return false;
+            }
+            return true;
+        });
     }
     scan(code, fileName) {
         const findings = [];
         const fileExt = '.' + fileName.split('.').pop()?.toLowerCase();
-        for (const rule of this.rules) {
+        const rules = this.getAllRules();
+        for (const rule of rules) {
             // Skip rules not applicable to this file type
             if (rule.languages && !rule.languages.includes(fileExt)) {
                 continue;
@@ -240,6 +287,16 @@ class SecurityScanner {
             }
         }
         return findings;
+    }
+    getBuiltInRuleIds() {
+        return this.builtInRules.map(r => r.id);
+    }
+    getCategories() {
+        const categories = new Set();
+        for (const rule of this.builtInRules) {
+            categories.add(rule.category);
+        }
+        return Array.from(categories);
     }
 }
 exports.SecurityScanner = SecurityScanner;
