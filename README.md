@@ -485,10 +485,12 @@ Suggested Fix:
 ## 🎓 **Learning Path**
 
 **For Development Team:**
-1. Read [DESIGN_BRAINSTORM.md](./DESIGN_BRAINSTORM.md) - Understand vision
-2. Read [QUICK_START_IMPLEMENTATION.md](./QUICK_START_IMPLEMENTATION.md) - Build MVP
-3. Test with sample code
-4. Add first 5 rules from [RULES_LIBRARY_EXAMPLES.md](./RULES_LIBRARY_EXAMPLES.md)
+1. **New to the project? Start here:** [DEVELOPMENT_SETUP.md](./DEVELOPMENT_SETUP.md) - Complete setup guide
+2. **Having setup issues?** [VM_SETUP_ISSUES.md](./VM_SETUP_ISSUES.md) - Quick troubleshooting reference
+3. Read [DESIGN_BRAINSTORM.md](./DESIGN_BRAINSTORM.md) - Understand vision
+4. Read [QUICK_START_IMPLEMENTATION.md](./QUICK_START_IMPLEMENTATION.md) - Build MVP
+5. Test with sample code
+6. Add first 5 rules from [RULES_LIBRARY_EXAMPLES.md](./RULES_LIBRARY_EXAMPLES.md)
 
 **For Security/Compliance Team:**
 1. Read [RULES_LIBRARY_EXAMPLES.md](./RULES_LIBRARY_EXAMPLES.md)
