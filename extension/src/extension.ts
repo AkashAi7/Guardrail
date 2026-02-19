@@ -417,7 +417,7 @@ async function createSampleTestFile() {
 // Test 1: Hardcoded API Key (should show HIGH severity error)
 const apiKey = "sk-1234567890abcdefghij";
 
-// Test 2: Hardcoded Password (should show HIGH severity error)  
+// Test 2: Hardcoded Password (should show HIGH severity error)
 const password = "admin123";
 
 // Test 3: SQL Injection vulnerability (should show HIGH severity error)
@@ -431,10 +431,11 @@ function displayMessage(msg) {
     document.getElementById('output').innerHTML = msg;
 }
 
-// Test 5: Empty catch block (should show MEDIUM severity warning)
+// Test 5: Empty catch block - intentionally empty to test detection (should show MEDIUM severity warning)
 try {
     riskyOperation();
 } catch (err) {
+    // Empty - this is a security anti-pattern that should be detected
 }
 
 // Save this file to see security issues highlighted!
