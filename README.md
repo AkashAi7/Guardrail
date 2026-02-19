@@ -59,18 +59,28 @@ Code Guardrail provides **real-time, intelligent code analysis** in VS Code, cat
 
 This repository contains complete design and implementation docs:
 
-### **1. [DESIGN_BRAINSTORM.md](./DESIGN_BRAINSTORM.md)** - Master Design Document
+### **1. [DEVELOPMENT_SETUP.md](./DEVELOPMENT_SETUP.md)** - Developer Quick Start 🆕
+- 🚀 Set up development environment from scratch
+- 🔧 Common issues and solutions for VM/fresh installs
+- 💻 Complete setup guide for contributors
+- 🐛 Troubleshooting checklist
+
+**Start here** if you're setting up the project for development or encountered setup issues.
+
+---
+
+### **2. [DESIGN_BRAINSTORM.md](./DESIGN_BRAINSTORM.md)** - Master Design Document
 - 🧠 Complete system architecture
 - 🏗️ Component breakdown
 - 💭 Use cases and examples
 - 📊 Implementation phases (MVP → Enterprise)
 - 🎯 Success metrics
 
-**Read this first** to understand the overall vision.
+**Read this** to understand the overall vision.
 
 ---
 
-### **2. [WORKFLOW_SEQUENCE.md](./WORKFLOW_SEQUENCE.md)** - Detailed Flows
+### **3. [WORKFLOW_SEQUENCE.md](./WORKFLOW_SEQUENCE.md)** - Detailed Flows
 - 🔄 Sequence diagrams for all major flows
 - 👨‍💻 Developer interaction patterns
 - 🔍 Analysis pipeline step-by-step
@@ -81,7 +91,7 @@ This repository contains complete design and implementation docs:
 
 ---
 
-### **3. [QUICK_START_IMPLEMENTATION.md](./QUICK_START_IMPLEMENTATION.md)** - Build It!
+### **4. [QUICK_START_IMPLEMENTATION.md](./QUICK_START_IMPLEMENTATION.md)** - Build It!
 - ⚡ Step-by-step implementation guide
 - 💻 Complete working code examples
 - 🚀 MVP in 2-3 weeks
@@ -89,11 +99,11 @@ This repository contains complete design and implementation docs:
 - 🎨 VS Code extension
 - 🧪 Testing instructions
 
-**Start here** to build your MVP.
+**Use this** to build your MVP.
 
 ---
 
-### **4. [RULES_LIBRARY_EXAMPLES.md](./RULES_LIBRARY_EXAMPLES.md)** - Rule Definitions
+### **5. [RULES_LIBRARY_EXAMPLES.md](./RULES_LIBRARY_EXAMPLES.md)** - Rule Definitions
 - 🔒 Security rules (SQL injection, secrets, XSS)
 - 📜 Compliance rules (GDPR, HIPAA, SOC2, PCI-DSS)
 - ✅ Best practice rules (error handling, patterns)
@@ -475,10 +485,12 @@ Suggested Fix:
 ## 🎓 **Learning Path**
 
 **For Development Team:**
-1. Read [DESIGN_BRAINSTORM.md](./DESIGN_BRAINSTORM.md) - Understand vision
-2. Read [QUICK_START_IMPLEMENTATION.md](./QUICK_START_IMPLEMENTATION.md) - Build MVP
-3. Test with sample code
-4. Add first 5 rules from [RULES_LIBRARY_EXAMPLES.md](./RULES_LIBRARY_EXAMPLES.md)
+1. **New to the project? Start here:** [DEVELOPMENT_SETUP.md](./DEVELOPMENT_SETUP.md) - Complete setup guide
+2. **Having setup issues?** [VM_SETUP_ISSUES.md](./VM_SETUP_ISSUES.md) - Quick troubleshooting reference
+3. Read [DESIGN_BRAINSTORM.md](./DESIGN_BRAINSTORM.md) - Understand vision
+4. Read [QUICK_START_IMPLEMENTATION.md](./QUICK_START_IMPLEMENTATION.md) - Build MVP
+5. Test with sample code
+6. Add first 5 rules from [RULES_LIBRARY_EXAMPLES.md](./RULES_LIBRARY_EXAMPLES.md)
 
 **For Security/Compliance Team:**
 1. Read [RULES_LIBRARY_EXAMPLES.md](./RULES_LIBRARY_EXAMPLES.md)
