@@ -38,6 +38,10 @@
         "title": "Code Guardrail: Analyze Current File"
       },
       {
+        "command": "codeGuardrail.scanProject",
+        "title": "Code Guardrail: Scan Entire Project with AI"
+      },
+      {
         "command": "codeGuardrail.clearDiagnostics",
         "title": "Code Guardrail: Clear All Issues"
       },

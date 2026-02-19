@@ -54,6 +54,87 @@ export function activate(context: vscode.ExtensionContext) {
         }
     });
     
+    // Scan entire project command
+    const scanProjectCmd = vscode.commands.registerCommand('codeGuardrail.scanProject', async () => {
+        const workspaceFolders = vscode.workspace.workspaceFolders;
+        if (!workspaceFolders || workspaceFolders.length === 0) {
+            vscode.window.showWarningMessage('No workspace folder open');
+            return;
+        }
+        
+        // Check if AI service is running
+        if (!serviceManager || !serviceManager.isRunning()) {
+            vscode.window.showErrorMessage(
+                'AI Service not running. Cannot scan project without AI service.',
+                'Start Service'
+            ).then(selection => {
+                if (selection === 'Start Service' && serviceManager) {
+                    serviceManager.start();
+                }
+            });
+            return;
+        }
+        
+        // Get all files in workspace
+        const files = await vscode.workspace.findFiles(
+            '**/*.{ts,tsx,js,jsx,py,java,cs,go,rb,php}',
+            '**/node_modules/**'
+        );
+        
+        if (files.length === 0) {
+            vscode.window.showInformationMessage('No code files found in workspace');
+            return;
+        }
+        
+        // Show progress
+        await vscode.window.withProgress({
+            location: vscode.ProgressLocation.Notification,
+            title: 'Scanning project with AI...',
+            cancellable: true
+        }, async (progress, token) => {
+            let analyzed = 0;
+            let totalIssues = 0;
+            
+            for (const fileUri of files) {
+                if (token.isCancellationRequested) {
+                    break;
+                }
+                
+                progress.report({
+                    message: `${analyzed}/${files.length} files (${totalIssues} issues found)`,
+                    increment: (100 / files.length)
+                });
+                
+                try {
+                    const document = await vscode.workspace.openTextDocument(fileUri);
+                    await analyzeDocument(document);
+                    
+                    // Count issues for this file
+                    const diagnostics = diagnosticCollection.get(fileUri);
+                    if (diagnostics) {
+                        totalIssues += diagnostics.length;
+                    }
+                } catch (error) {
+                    console.error(`Failed to analyze ${fileUri.fsPath}:`, error);
+                }
+                
+                analyzed++;
+            }
+            
+            progress.report({ message: `Complete: ${analyzed} files, ${totalIssues} issues` });
+            
+            // Show summary
+            vscode.window.showInformationMessage(
+                `\ud83e\udd16 Project scan complete! Analyzed ${analyzed} files, found ${totalIssues} issues.`,
+                'View Issues'
+            ).then(selection => {
+                if (selection === 'View Issues') {
+                    vscode.commands.executeCommand('workbench.actions.view.problems');
+                }
+            });
+        });
+    });
+    
     const clearCmd = vscode.commands.registerCommand('codeGuardrail.clearDiagnostics', () => {
         diagnosticCollection.clear();
         vscode.window.showInformationMessage('Cleared all Code Guardrail issues');
@@ -75,6 +156,11 @@ export function activate(context: vscode.ExtensionContext) {
                 label: '$(file-code) Analyze Current File',
                 description: 'Scan the active file for security issues',
                 action: 'analyze'
+            },
+            {
+                label: '$(folder) Scan Entire Project',
+                description: 'Analyze all files in workspace with AI',
+                action: 'scan-project'
             },
             {
                 label: '$(book) Manage Rules',
@@ -122,6 +208,9 @@ export function activate(context: vscode.ExtensionContext) {
                     break;
                 case 'analyze':
                     vscode.commands.executeCommand('codeGuardrail.analyzeFile');
+                    break;
+                case 'scan-project':
+                    vscode.commands.executeCommand('codeGuardrail.scanProject');
                     break;
                 case 'manage':
                     vscode.commands.executeCommand('codeGuardrail.manageRules');
@@ -659,6 +748,7 @@ const apiKey = process.env.COMPANY_API_KEY;
         diagnosticCollection,
         statusBarItem,
         analyzeCmd,
+        scanProjectCmd,
         clearCmd,
         showQuickPickCmd,
         showIssuesPanelCmd,
@@ -781,54 +871,60 @@ function shouldAnalyze(document: vscode.TextDocument): boolean {
 async function analyzeDocument(document: vscode.TextDocument) {
     const text = document.getText();
     let findings: Finding[] = [];
-    let analysisSource: 'AI' | 'Regex' = 'Regex'; // Track which engine was used
     
-    // Try to use backend service first, fallback to local scanning
-    if (serviceManager && serviceManager.isRunning()) {
-        try {
-            const response = await serviceManager.makeRequest('/analyze', 'POST', {
-                content: text,
-                filePath: document.fileName,
-                language: document.languageId
-            }, 10000); // 10 second timeout
-            
-            // Convert backend response to Finding format
-            if (response.success && response.result && response.result.findings) {
-                findings = response.result.findings.map((finding: any) => {
-                    // Calculate offsets from line numbers
-                    const lines = text.split('\n');
-                    let startOffset = 0;
-                    for (let i = 0; i < finding.line - 1 && i < lines.length; i++) {
-                        startOffset += lines[i].length + 1; // +1 for newline
-                    }
-                    const endOffset = startOffset + (finding.snippet?.length || 50);
-                    
-                    return {
-                        ruleId: `🤖 ${finding.id || 'AI-001'}`, // Add AI emoji to rule ID
-                        severity: finding.severity || 'MEDIUM',
-                        message: `${finding.title}: ${finding.description}`,
-                        startOffset: startOffset,
-                        endOffset: endOffset,
-                        category: finding.category?.toLowerCase() || 'security',
-                        quickFix: finding.suggestedFix
-                    };
-                });
-                
-                analysisSource = 'AI';
-                console.log(`✅ AI analysis complete: ${findings.length} issues found`);
+    // AI-only analysis (no regex fallback)
+    if (!serviceManager || !serviceManager.isRunning()) {
+        vscode.window.showErrorMessage(
+            '❌ AI Service not running. Code Guardrail requires the AI service to analyze code.',
+            'Retry Starting Service'
+        ).then(selection => {
+            if (selection === 'Retry Starting Service' && serviceManager) {
+                serviceManager.start();
             }
-        } catch (error: any) {
-            console.warn('⚠️ Backend analysis failed, using local scanning:', error.message);
-            // Fall through to local scanning
-            findings = scanner.scan(text, document.fileName);
-            analysisSource = 'Regex';
-            console.log(`📝 Regex analysis complete: ${findings.length} issues found`);
+        });
+        statusBarItem.text = '$(alert) Guardrail: AI Service Required';
+        statusBarItem.backgroundColor = new vscode.ThemeColor('statusBarItem.errorBackground');
+        statusBarItem.tooltip = 'AI service must be running for analysis. Click to retry.';
+        return;
+    }
+    
+    try {
+        const response = await serviceManager.makeRequest('/analyze', 'POST', {
+            content: text,
+            filePath: document.fileName,
+            language: document.languageId
+        }, 30000); // 30 second timeout for AI analysis
+        
+        // Convert backend response to Finding format
+        if (response.success && response.result && response.result.findings) {
+            findings = response.result.findings.map((finding: any) => {
+                // Calculate offsets from line numbers
+                const lines = text.split('\n');
+                let startOffset = 0;
+                for (let i = 0; i < finding.line - 1 && i < lines.length; i++) {
+                    startOffset += lines[i].length + 1; // +1 for newline
+                }
+                const endOffset = startOffset + (finding.snippet?.length || 50);
+                
+                return {
+                    ruleId: `🤖 ${finding.id || 'AI-001'}`,
+                    severity: finding.severity || 'MEDIUM',
+                    message: `${finding.title}: ${finding.description}`,
+                    startOffset: startOffset,
+                    endOffset: endOffset,
+                    category: finding.category?.toLowerCase() || 'security',
+                    quickFix: finding.suggestedFix
+                };
+            });
+            
+            console.log(`✅ AI analysis complete: ${findings.length} issues found`);
         }
-    } else {
-        // Use local scanning
-        findings = scanner.scan(text, document.fileName);
-        analysisSource = 'Regex';
-        console.log(`📝 Regex analysis complete: ${findings.length} issues found (AI service not available)`);
+    } catch (error: any) {
+        console.error('❌ AI analysis failed:', error.message);
+        vscode.window.showErrorMessage(`AI analysis failed: ${error.message}`);
+        statusBarItem.text = '$(alert) Guardrail: Analysis Failed';
+        statusBarItem.backgroundColor = new vscode.ThemeColor('statusBarItem.errorBackground');
+        return;
     }
     
     const diagnostics: vscode.Diagnostic[] = findings.map(finding => {
@@ -838,41 +934,29 @@ async function analyzeDocument(document: vscode.TextDocument) {
         
         const severity = mapSeverity(finding.severity);
         const diagnostic = new vscode.Diagnostic(range, finding.message, severity);
-        
-        // Add clear source indicator
-        diagnostic.source = analysisSource === 'AI' 
-            ? 'Code Guardrail (🤖 AI)' 
-            : 'Code Guardrail (📝 Regex)';
+        diagnostic.source = 'Code Guardrail (🤖 AI)';
         diagnostic.code = finding.ruleId;
-        
-        // Add tags to differentiate visually
-        if (analysisSource === 'AI') {
-            diagnostic.tags = [vscode.DiagnosticTag.Unnecessary]; // Just for visual distinction
-        }
         
         return diagnostic;
     });
     
     diagnosticCollection.set(document.uri, diagnostics);
     
-    // Update status bar with analysis source indicator
-    const sourceEmoji = analysisSource === 'AI' ? '🤖' : '📝';
-    const sourceLabel = analysisSource === 'AI' ? 'AI' : 'Regex';
-    
+    // Update status bar
     if (findings.length > 0) {
         const highCount = findings.filter(f => f.severity === 'HIGH').length;
         if (highCount > 0) {
-            statusBarItem.text = `$(alert) Guardrail (${sourceEmoji}): ${findings.length} issue(s) (${highCount} critical)`;
+            statusBarItem.text = `$(alert) Guardrail 🤖: ${findings.length} issue(s) (${highCount} critical)`;
             statusBarItem.backgroundColor = new vscode.ThemeColor('statusBarItem.errorBackground');
         } else {
-            statusBarItem.text = `$(warning) Guardrail (${sourceEmoji}): ${findings.length} issue(s)`;
+            statusBarItem.text = `$(warning) Guardrail 🤖: ${findings.length} issue(s)`;
             statusBarItem.backgroundColor = new vscode.ThemeColor('statusBarItem.warningBackground');
         }
-        statusBarItem.tooltip = `Code Guardrail found ${findings.length} security/compliance issue(s) using ${sourceLabel} analysis. Click to see options.`;
+        statusBarItem.tooltip = `AI found ${findings.length} security/compliance issue(s). Click to see options.`;
     } else {
-        statusBarItem.text = `$(shield-check) Guardrail (${sourceEmoji}): Clean`;
+        statusBarItem.text = '$(shield-check) Guardrail 🤖: Clean';
         statusBarItem.backgroundColor = undefined;
-        statusBarItem.tooltip = `Code Guardrail - No issues found (${sourceLabel} analysis). Click for options.`;
+        statusBarItem.tooltip = 'AI analysis - No issues found. Click for options.';
     }
 }
 
