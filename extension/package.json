@@ -10,7 +10,8 @@
     "url": "https://github.com/AkashAi7/Guardrail.git"
   },
   "engines": {
-    "vscode": "^1.80.0"
+    "vscode": "^1.80.0",
+    "node": ">=18.0.0"
   },
   "categories": [
     "Linters",
@@ -56,11 +57,16 @@
   "scripts": {
     "vscode:prepublish": "npm run compile",
     "compile": "tsc -p ./",
-    "watch": "tsc -watch -p ./"
+    "watch": "tsc -watch -p ./",
+    "package": "vsce package",
+    "publish": "vsce publish",
+    "pretest": "npm run compile",
+    "lint": "eslint src --ext ts"
   },
   "devDependencies": {
     "@types/node": "20.x",
     "@types/vscode": "^1.80.0",
+    "@vscode/vsce": "^2.32.0",
     "typescript": "^5.1.6"
   },
   "dependencies": {
