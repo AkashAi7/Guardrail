@@ -263,10 +263,14 @@ If nothing above works:
 
 ### Status Bar Icons
 
-- `$(shield-check) Guardrail: Ready` - Working, no issues
-- `$(shield-check) Guardrail: Clean` - File scanned, no issues found
-- `$(warning) Guardrail: X issues` - Issues found (medium severity)
-- `$(alert) Guardrail: X issues (Y critical)` - Critical issues found
+The shield icon in the bottom-left status bar shows the current state:
+
+- `🛡️ Guardrail: Ready` - Extension activated, ready to scan
+- `🛡️ Guardrail: Clean` - File scanned, no security issues found
+- `⚠️ Guardrail: X issues` - Issues found (medium severity)
+- `🚨 Guardrail: X issues (Y critical)` - Critical security issues found
+
+Click the icon anytime to access the quick menu!
 
 ### Keyboard Shortcuts
 
