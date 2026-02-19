@@ -14,28 +14,38 @@ $SERVICE_ZIP_URL = "$RELEASE_BASE_URL/guardrail-service-v$Version.zip"
 $EXTENSION_URL = "$RELEASE_BASE_URL/code-guardrail-0.1.0.vsix"
 
 Write-Host ""
-Write-Host "========================================" -ForegroundColor Cyan
-Write-Host "  Code Guardrail Installer" -ForegroundColor Cyan
-Write-Host "========================================" -ForegroundColor Cyan
+Write-Host "╔═══════════════════════════════════════════════════════════════╗" -ForegroundColor Cyan
+Write-Host "║                                                               ║" -ForegroundColor Cyan
+Write-Host "║           🛡️  CODE GUARDRAIL INSTALLER 🛡️                   ║" -ForegroundColor Cyan
+Write-Host "║                                                               ║" -ForegroundColor Cyan
+Write-Host "║   Installing from GitHub Release (Lightweight ~10MB)         ║" -ForegroundColor Cyan
+Write-Host "║                                                               ║" -ForegroundColor Cyan
+Write-Host "╚═══════════════════════════════════════════════════════════════╝" -ForegroundColor Cyan
 Write-Host ""
-Write-Host "Version: v$Version" -ForegroundColor Yellow
-Write-Host "Install Directory: $InstallDir" -ForegroundColor Yellow
+Write-Host "Version: " -ForegroundColor Yellow -NoNewline
+Write-Host "v$Version" -ForegroundColor White
+Write-Host "Install Directory: " -ForegroundColor Yellow -NoNewline
+Write-Host "$InstallDir" -ForegroundColor White
 Write-Host ""
 
 # ============================================
 # Check Prerequisites
 # ============================================
-Write-Host "🔍 Checking prerequisites..." -ForegroundColor Cyan
+Write-Host "📋 Checking Prerequisites" -ForegroundColor Cyan
+Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor Cyan
+Write-Host ""
 
 # Check Node.js
 $nodeInstalled = $false
 try {
     $nodeVersion = node --version
-    Write-Host "✅ Node.js: $nodeVersion" -ForegroundColor Green
+    Write-Host "  ✓ " -ForegroundColor Green -NoNewline
+    Write-Host "Node.js $nodeVersion" -ForegroundColor White
     $nodeInstalled = $true
 } catch {
-    Write-Host "⚠️ Node.js not found" -ForegroundColor Yellow
-    Write-Host "📥 Downloading Node.js installer..." -ForegroundColor Cyan
+    Write-Host "  ⚠  " -ForegroundColor Yellow -NoNewline
+    Write-Host "Node.js not found" -ForegroundColor White
+    Write-Host "  → Downloading Node.js installer..." -ForegroundColor Blue
     
     # Determine architecture
     $arch = if ([Environment]::Is64BitOperatingSystem) { "x64" } else { "x86" }
@@ -45,9 +55,9 @@ try {
     
     try {
         Invoke-WebRequest -Uri $nodeInstallerUrl -OutFile $nodeInstaller -UseBasicParsing
-        Write-Host "✅ Downloaded Node.js installer" -ForegroundColor Green
+        Write-Host "    ✓ Downloaded Node.js installer" -ForegroundColor Green
         
-        Write-Host "🔧 Installing Node.js (this may take a few minutes)..." -ForegroundColor Cyan
+        Write-Host "  → Installing Node.js (this may take a few minutes)..." -ForegroundColor Blue
         Start-Process msiexec.exe -ArgumentList "/i", $nodeInstaller, "/quiet", "/norestart" -Wait
         
         # Refresh PATH
@@ -56,7 +66,7 @@ try {
         # Verify installation
         Start-Sleep -Seconds 3
         $nodeVersion = node --version
-        Write-Host "✅ Node.js installed: $nodeVersion" -ForegroundColor Green
+        Write-Host "    ✓ Node.js installed: $nodeVersion" -ForegroundColor Green
         Remove-Item $nodeInstaller -Force
         $nodeInstalled = $true
     } catch {
@@ -106,23 +116,26 @@ try {
 
 if ($nodeInstalled -and $vscodeInstalled) {
     Write-Host ""
-    Write-Host "✅ All prerequisites satisfied" -ForegroundColor Green
+    Write-Host "  ✓ All prerequisites satisfied" -ForegroundColor Green
 }
 
 # ============================================
 # Download Service
 # ============================================
 Write-Host ""
-Write-Host "📥 Downloading service package..." -ForegroundColor Cyan
+Write-Host "📥 Downloading Service Package" -ForegroundColor Cyan
+Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor Cyan
+Write-Host ""
 
 $tempZip = "$env:TEMP\guardrail-service.zip"
 
+Write-Host "→ Downloading from GitHub releases..." -ForegroundColor Blue
 try {
     Invoke-WebRequest -Uri $SERVICE_ZIP_URL -OutFile $tempZip -UseBasicParsing
-    Write-Host "✅ Downloaded service package" -ForegroundColor Green
+    Write-Host "✓ Downloaded service package" -ForegroundColor Green
 } catch {
-    Write-Host "❌ Failed to download service from: $SERVICE_ZIP_URL" -ForegroundColor Red
-    Write-Host "   Error: $_" -ForegroundColor Red
+    Write-Host "✗ Failed to download from: $SERVICE_ZIP_URL" -ForegroundColor Red
+    Write-Host "  Error: $_" -ForegroundColor Red
     exit 1
 }
 
@@ -130,22 +143,26 @@ try {
 # Extract Service
 # ============================================
 Write-Host ""
-Write-Host "📦 Extracting service..." -ForegroundColor Cyan
+Write-Host "📦 Extracting Service" -ForegroundColor Cyan
+Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor Cyan
+Write-Host ""
 
 # Create install directory
 if (Test-Path $InstallDir) {
-    Write-Host "  Removing existing installation..." -ForegroundColor Yellow
+    Write-Host "  ⚠  Removing existing installation..." -ForegroundColor Yellow
     Remove-Item $InstallDir -Recurse -Force
 }
 
 New-Item -ItemType Directory -Path $InstallDir -Force | Out-Null
 
+Write-Host "→ Extracting files..." -ForegroundColor Blue
 try {
     Expand-Archive -Path $tempZip -DestinationPath $InstallDir -Force
     Remove-Item $tempZip -Force
-    Write-Host "✅ Service extracted to: $InstallDir" -ForegroundColor Green
+    Write-Host "✓ Service extracted to: " -ForegroundColor Green -NoNewline
+    Write-Host "$InstallDir" -ForegroundColor White
 } catch {
-    Write-Host "❌ Failed to extract service: $_" -ForegroundColor Red
+    Write-Host "✗ Failed to extract service: $_" -ForegroundColor Red
     exit 1
 }
 
@@ -219,41 +236,57 @@ Start-Sleep -Seconds 3
 # Check if service is running
 try {
     $response = Invoke-WebRequest -Uri "http://localhost:3000/health" -UseBasicParsing -TimeoutSec 5
-    Write-Host "✅ Service started successfully (PID: $($serviceProcess.Id))" -ForegroundColor Green
+    Write-Host "  ✓ " -ForegroundColor Green -NoNewline
+    Write-Host "Service started successfully (PID: $($serviceProcess.Id))" -ForegroundColor White
 } catch {
-    Write-Host "⚠️ Service may not be running. Check logs:" -ForegroundColor Yellow
-    Write-Host "   $InstallDir\service.log" -ForegroundColor Yellow
-    Write-Host "   $InstallDir\service-error.log" -ForegroundColor Yellow
+    Write-Host "  ⚠  " -ForegroundColor Yellow -NoNewline
+    Write-Host "Service may not be running. Check logs:" -ForegroundColor White
+    Write-Host "    → " -ForegroundColor Blue -NoNewline
+    Write-Host "$InstallDir\service.log" -ForegroundColor Cyan
+    Write-Host "    → " -ForegroundColor Blue -NoNewline
+    Write-Host "$InstallDir\service-error.log" -ForegroundColor Cyan
 }
 
 # ============================================
 # Success
 # ============================================
 Write-Host ""
-Write-Host "========================================" -ForegroundColor Green
-Write-Host "  ✅ Installation Complete!" -ForegroundColor Green
-Write-Host "========================================" -ForegroundColor Green
+Write-Host "╔═══════════════════════════════════════════════════════════════╗" -ForegroundColor Green
+Write-Host "║                                                               ║" -ForegroundColor Green
+Write-Host "║              ✅  INSTALLATION COMPLETE! ✅                     ║" -ForegroundColor Green
+Write-Host "║                                                               ║" -ForegroundColor Green
+Write-Host "╚═══════════════════════════════════════════════════════════════╝" -ForegroundColor Green
 Write-Host ""
-Write-Host "📍 Service Location:" -ForegroundColor Cyan
+Write-Host "📍 Service Location" -ForegroundColor Cyan
 Write-Host "   $InstallDir" -ForegroundColor White
 Write-Host ""
-Write-Host "🔧 Service Status:" -ForegroundColor Cyan
-Write-Host "   ✓ Running on http://localhost:3000" -ForegroundColor Green
-Write-Host "   ✓ Process ID: $($serviceProcess.Id)" -ForegroundColor Green
+Write-Host "🔧 Service Status" -ForegroundColor Cyan
+Write-Host "   ✓ Running on " -ForegroundColor Green -NoNewline
+Write-Host "http://localhost:3000" -ForegroundColor Blue
+Write-Host "   ✓ Process ID: " -ForegroundColor Green -NoNewline
+Write-Host "$($serviceProcess.Id)" -ForegroundColor White
 Write-Host ""
-Write-Host "🎯 Next Steps:" -ForegroundColor Cyan
-Write-Host "   1. Restart VS Code" -ForegroundColor White
-Write-Host "   2. Open any TypeScript/JavaScript file" -ForegroundColor White
-Write-Host "   3. Try adding:" -ForegroundColor White
+Write-Host "🎯 Next Steps" -ForegroundColor Cyan
+Write-Host "   1. " -ForegroundColor White -NoNewline
+Write-Host "Restart VS Code" -ForegroundColor Yellow
+Write-Host "   2. " -ForegroundColor White -NoNewline
+Write-Host "Open any TypeScript/JavaScript file" -ForegroundColor Yellow
+Write-Host "   3. " -ForegroundColor White -NoNewline
+Write-Host "Try adding:" -ForegroundColor Yellow
 Write-Host "      const password = `"admin123`";" -ForegroundColor Yellow
 Write-Host "      const apiKey = `"sk-1234567890`";" -ForegroundColor Yellow
-Write-Host "   4. Save → See real-time analysis! ✨" -ForegroundColor White
+Write-Host "   4. " -ForegroundColor White -NoNewline
+Write-Host "Save → See real-time analysis! ✨" -ForegroundColor Yellow
 Write-Host ""
-Write-Host "📚 Documentation:" -ForegroundColor Cyan
-Write-Host "   $REPO_URL" -ForegroundColor White
+Write-Host "📚 Documentation" -ForegroundColor Cyan
+Write-Host "   → " -ForegroundColor Blue -NoNewline
+Write-Host "$REPO_URL" -ForegroundColor White
 Write-Host ""
-Write-Host "🛠️ Manage Service:" -ForegroundColor Cyan
-Write-Host "   Stop:  Stop-Process -Id $($serviceProcess.Id)" -ForegroundColor White
-Write-Host "   Start: cd $InstallDir ; node dist/index.js" -ForegroundColor White
-Write-Host "   Logs:  Get-Content $InstallDir\service.log" -ForegroundColor White
+Write-Host "🛠️  Manage Service" -ForegroundColor Cyan
+Write-Host "   → Stop:  " -ForegroundColor Blue -NoNewline
+Write-Host "Stop-Process -Id $($serviceProcess.Id)" -ForegroundColor Cyan
+Write-Host "   → Start: " -ForegroundColor Blue -NoNewline
+Write-Host "cd $InstallDir ; node dist/index.js" -ForegroundColor Cyan
+Write-Host "   → Logs:  " -ForegroundColor Blue -NoNewline
+Write-Host "Get-Content $InstallDir\service.log" -ForegroundColor Cyan
 Write-Host ""
