@@ -1,549 +1,237 @@
 # 🛡️ Code Guardrail
 
-**Real-time Security & Compliance Analysis for VS Code**
+> **Real-time security & compliance analysis for VS Code** - No backend required, just install and code!
 
-[![Version](https://img.shields.io/badge/version-0.1.0-blue.svg)](https://github.com/AkashAi7/Guardrail/releases)
-[![License](https://img.shields.io/badge/license-MIT-green.svg)](./LICENSE)
-[![Platform](https://img.shields.io/badge/platform-VS%20Code-blueviolet.svg)](https://code.visualstudio.com/)
+[![Version](https://img.shields.io/badge/version-0.4.0-blue.svg)](https://github.com/AkashAi7/Guardrail/releases)
+[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![VS Code](https://img.shields.io/badge/VS%20Code-1.85%2B-007ACC.svg)](https://code.visualstudio.com/)
 
-> Catch security vulnerabilities and compliance issues **while you code**, powered by GitHub Copilot SDK
+**Code Guardrail** detects security vulnerabilities, compliance violations, and code quality issues **as you type** - preventing problems before they reach production.
 
 ---
 
-## ⚡ One-Click Installation
+## ✨ Features
 
-Copy and paste one command - that's it!
+- 🔒 **Security Scanning** - Detects hardcoded secrets, SQL injection, XSS, weak crypto
+- 📋 **Compliance Checking** - GDPR, HIPAA, SOC2, PCI-DSS rules built-in
+- ⚡ **Real-Time Feedback** - Issues highlighted instantly on file save
+- 🎯 **Zero Configuration** - Works out of the box with 20+ built-in rules
+- 🏢 **Organization Rules** - Import and share custom rules across teams
+- 🌐 **Multi-Language** - TypeScript, JavaScript, Python, Java, C#, Go, Ruby, PHP
 
-### Windows (PowerShell)
+---
+
+## 🚀 Quick Install
+
+**One command (Windows PowerShell):**
 
 ```powershell
-iwr https://raw.githubusercontent.com/AkashAi7/Guardrail/main/install.ps1 -UseBasicParsing | iex
+irm https://raw.githubusercontent.com/AkashAi7/Guardrail/main/scripts/install-from-release.ps1 | iex
 ```
 
-### macOS / Linux (Terminal)
+**Manual Install:**
 
-```bash
-curl -fsSL https://raw.githubusercontent.com/AkashAi7/Guardrail/main/install.sh | bash
-```
+1. Download [code-guardrail-0.4.0.vsix](https://github.com/AkashAi7/Guardrail/releases/download/v0.4.0/code-guardrail-0.4.0.vsix)
+2. Run: `code --install-extension code-guardrail-0.4.0.vsix`
+3. Reload VS Code
 
-**⏱️ Takes 2-3 minutes** | **📦 ~100MB download** | **🔄 Auto-installs prerequisites** | **✅ No setup needed**
-
-> 💡 **Missing Node.js or VS Code?** No problem! The installer automatically downloads and installs them for you.
-
-> 🪟 **Windows users:** Having issues? See the [Windows Troubleshooting Guide](./WINDOWS_TROUBLESHOOTING.md)
-
-**[📖 Alternative Installation Methods](#-quick-start---one-command-installation)**
-
----
-
-## 🎯 What Is This?
-
-Code Guardrail provides **real-time, intelligent code analysis** in VS Code, catching issues as you type:
-
-✅ **Security** - Catch vulnerabilities before commit  
-✅ **Compliance** - GDPR, HIPAA, SOC2, PCI-DSS compliance  
-✅ **Best Practices** - Framework conventions, code quality  
-✅ **Speed** - Fix issues in seconds, not days  
-
-### **The Problem We Solve**
-
-| Traditional Approach | Our Approach |
-|---------------------|-------------|
-| 🐌 Issues found in PR review (too late) | ⚡ Issues caught while coding |
-| 📚 Manual compliance checking | 🤖 Automated compliance validation |
-| 🤔 Developers forget requirements | 💡 Proactive suggestions |
-| 😰 Complex regex patterns | 🧠 LLM-powered semantic analysis |
-| 📝 Generic error messages | 🎓 Educational explanations |
-
----
-
-## 📚 **Documentation Structure**
-
-This repository contains complete design and implementation docs:
-
-### **1. [DESIGN_BRAINSTORM.md](./DESIGN_BRAINSTORM.md)** - Master Design Document
-- 🧠 Complete system architecture
-- 🏗️ Component breakdown
-- 💭 Use cases and examples
-- 📊 Implementation phases (MVP → Enterprise)
-- 🎯 Success metrics
-
-**Read this first** to understand the overall vision.
-
----
-
-### **2. [WORKFLOW_SEQUENCE.md](./WORKFLOW_SEQUENCE.md)** - Detailed Flows
-- 🔄 Sequence diagrams for all major flows
-- 👨‍💻 Developer interaction patterns
-- 🔍 Analysis pipeline step-by-step
-- 🚦 Git pre-commit integration
-- 📊 Analytics and feedback loops
-
-**Read this** to understand how everything works together.
-
----
-
-### **3. [QUICK_START_IMPLEMENTATION.md](./QUICK_START_IMPLEMENTATION.md)** - Build It!
-- ⚡ Step-by-step implementation guide
-- 💻 Complete working code examples
-- 🚀 MVP in 2-3 weeks
-- 🔧 Backend service setup
-- 🎨 VS Code extension
-- 🧪 Testing instructions
-
-**Start here** to build your MVP.
-
----
-
-### **4. [RULES_LIBRARY_EXAMPLES.md](./RULES_LIBRARY_EXAMPLES.md)** - Rule Definitions
-- 🔒 Security rules (SQL injection, secrets, XSS)
-- 📜 Compliance rules (GDPR, HIPAA, SOC2, PCI-DSS)
-- ✅ Best practice rules (error handling, patterns)
-- 📝 Complete YAML rule format
-- 🎯 How to create custom rules
-
-**Use this** as a template library for your rules.
-
----
-
-## 🚀 **Quick Start - One Command Installation**
-
-### **📦 Option 1: One-Line Install (Recommended)**
-
-Copy and paste this command - it installs everything automatically:
-
-**Windows (PowerShell):**
+**Verify Installation:**
 ```powershell
-iwr https://raw.githubusercontent.com/AkashAi7/Guardrail/main/install.ps1 -UseBasicParsing | iex
+code --list-extensions | Select-String "guardrail"
 ```
 
-**macOS / Linux (Bash):**
+➡️ **[Full Installation Guide](INSTALL.md)**
+
+---
+
+## 🎯 How It Works
+
+**1. Install** → Extension activates automatically  
+**2. Code** → Write code normally  
+**3. Save** → Issues highlighted instantly (red/yellow squiggles)  
+**4. Fix** → Click issue to see details and remediation
+
+### Example
+
+```typescript
+// ❌ This will be flagged immediately on save:
+const apiKey = "sk-1234567890";  // 🔴 Hardcoded API key detected
+
+// ✅ Recommended fix:
+const apiKey = process.env.API_KEY;  // No issues!
+```
+
+➡️ **[Getting Started Guide](GETTING_STARTED.md)**
+
+---
+
+## 📊 Built-in Rules
+
+Code Guardrail includes **20+ professional security rules**:
+
+| Category | Rules | Examples |
+|----------|-------|----------|
+| **Secrets** | API keys, passwords, tokens | AWS keys, GitHub tokens, database passwords |
+| **Injection** | SQL, command, LDAP injection | Unsanitized user input in queries |
+| **XSS** | Cross-site scripting | `innerHTML` with user data |
+| **Crypto** | Weak algorithms, hardcoded keys | MD5, SHA1, hardcoded encryption keys |
+| **Data Privacy** | PII exposure, sensitive logging | SSN, credit cards in logs |
+| **Best Practices** | Empty catch, console.log | Error handling anti-patterns |
+
+**View all rules:** `Ctrl+Shift+P` → "Code Guardrail: View Rules"
+
+---
+
+## 🏢 Organization Usage
+
+### Import Organization Rules
+
+```powershell
+# From your command palette (Ctrl+Shift+P):
+Code Guardrail: Setup Organization Rules
+→ Enter: https://github.com/yourorg/security-rules.git
+```
+
+### Create Custom Rules
+
+```powershell
+# Command palette:
+Code Guardrail: Create Custom Rule
+→ Follow the interactive wizard
+```
+
+### Share Rules Across Teams
+
+**Option 1: Git Repository**
 ```bash
-curl -fsSL https://raw.githubusercontent.com/AkashAi7/Guardrail/main/install.sh | bash
+# Clone rules to project
+git submodule add https://github.com/yourorg/rules .guardrail
 ```
 
-**What it does:**
-- ✅ Checks prerequisites (Node.js 18+, VS Code)
-- ✅ Downloads pre-built service (~100MB)
-- ✅ Installs VS Code extension automatically
-- ✅ Starts the service for you
-- ✅ Detects GitHub Copilot OR uses your API keys
-
-**⏱️ Installation time:** 2-3 minutes
-
----
-
-### **💾 Option 2: Manual VSIX Install**
-
-If you prefer manual installation:
-
-1. **Download the extension:** [code-guardrail-0.1.0.vsix](https://github.com/AkashAi7/Guardrail/releases/latest/download/code-guardrail-0.1.0.vsix)
-2. **Install in VS Code:**
-   ```bash
-   code --install-extension code-guardrail-0.1.0.vsix
-   ```
-3. **Download & extract service:** [guardrail-service-v0.1.0.zip](https://github.com/AkashAi7/Guardrail/releases/latest)
-4. **Start service:**
-   ```bash
-   # Extract to ~/.guardrail/service or %LOCALAPPDATA%\Guardrail\service
-   cd ~/.guardrail/service
-   npm start
-   ```
-
----
-
-### **✅ Verify Installation**
-
-After installation (one-liner does this automatically):
-
-1. **Open VS Code** (or reload window: `Ctrl+Shift+P` → "Reload Window")
-2. You'll see: **"Code Guardrail is ready!"** notification
-3. **Open any file** and add test code:
-   ```typescript
-   const password = "admin123";
-   const apiKey = "sk-1234567890";
-   ```
-4. **Save the file** → See **red squiggles** appear! ✨
-5. **Check status bar** → Shield icon shows issue count
-
-**Not working?** 
-- 🪟 Windows users: See [Windows Troubleshooting Guide](./WINDOWS_TROUBLESHOOTING.md)
-- 📖 General issues: See [INSTALL.md troubleshooting](./INSTALL.md#troubleshooting)
-- 🐛 Still stuck: Open an [issue](https://github.com/AkashAi7/Guardrail/issues)
-
----
-
----
-
-## 🏗️ **System Architecture (High-Level)**
-
+**Option 2: Single URL Import**
 ```
-┌─────────────────────────────────────────────────────┐
-│                DEVELOPER'S IDE                      │
-│  • Inline warnings (red squiggles)                  │
-│  • Quick fixes (one-click)                          │
-│  • Hover explanations                               │
-│  • Problems panel                                   │
-└───────────────────┬─────────────────────────────────┘
-                    │
-                    │ HTTP API
-                    ▼
-┌─────────────────────────────────────────────────────┐
-│           GUARDRAIL SERVICE (Node.js)               │
-│  ┌───────────────────────────────────────────────┐ │
-│  │       GitHub Copilot SDK Client               │ │
-│  │  • Manages Copilot CLI                        │ │
-│  │  • Custom tools (security, compliance)        │ │
-│  │  • LLM-powered semantic analysis              │ │
-│  └───────────────────────────────────────────────┘ │
-│                                                     │
-│  ┌───────────────────────────────────────────────┐ │
-│  │         RULES ENGINE                          │ │
-│  │  • Security patterns (secrets, SQL injection) │ │
-│  │  • Compliance checks (GDPR, HIPAA, SOC2)     │ │
-│  │  • Best practices (error handling, patterns)  │ │
-│  └───────────────────────────────────────────────┘ │
-└─────────────────────────────────────────────────────┘
+Ctrl+Shift+P → Import Rules from URL
+→ https://yourorg.com/security-rules.md
 ```
 
-**Flow:**
-1. Developer saves file → Extension captures change
-2. Extension sends code to Guardrail Service
-3. Service uses Copilot SDK to analyze code
-4. Copilot agent invokes custom tools (rules engine)
-5. Results returned with suggestions & fixes
-6. Extension displays inline warnings in IDE
+➡️ **[Organization Setup Guide](docs/distribution/DISTRIBUTION_GUIDE.md)**
 
 ---
 
-## 💡 **Key Features**
+## 🎨 Quick Commands
 
-### **🤖 Intelligent Analysis**
-- **LLM-Powered**: Not just regex - understands context and semantics
-- **Multi-Layer**: Syntax → Security → Compliance → Best Practices
-- **Language-Agnostic**: Works with JavaScript, Python, Java, Go, C#, etc.
+Press `Ctrl+Shift+P` and type:
 
-### **⚡ Real-Time Feedback**
-- **< 3 seconds**: Analysis completes before developer moves on
-- **Incremental**: Only analyzes changed code
-- **Non-Blocking**: Doesn't interrupt workflow
+- `Code Guardrail: Test with Sample` - Create test file with issues
+- `Code Guardrail: Analyze Current File` - Scan active file
+- `Code Guardrail: Manage Rules` - View/edit custom rules
+- `Code Guardrail: Create Custom Rule` - Add new rule
+- `Code Guardrail: Import from URL` - Download org rules
 
-### **🎓 Educational**
-- **Explains WHY**: Not just "fix this" but "here's why it matters"
-- **Compliance Context**: Shows GDPR Article 32, SOC2 requirements, etc.
-- **Documentation Links**: Points to OWASP, CWE, internal wikis
-
-### **🔧 Actionable**
-- **One-Click Fixes**: Auto-applies suggested code changes
-- **Multiple Options**: Provides alternative solutions
-- **Smart Suggestions**: Context-aware based on project patterns
-
-### **📊 Observable**
-- **Team Dashboard**: See compliance health, trends, top issues
-- **Analytics**: Track what's working, false positive rates
-- **Audit Trail**: Complete history for compliance reports
+**Or click the 🛡️ shield icon** in the status bar for quick access.
 
 ---
 
-## 📋 **Implementation Roadmap**
+## 📖 Documentation
 
-### **Phase 1: MVP (2-3 weeks)** ✅ Start Here
-- [x] Basic Copilot SDK integration
-- [x] 5-10 critical security rules
-- [x] VS Code extension with inline diagnostics
-- [x] Manual trigger (on-demand analysis)
+### User Guides
+- **[Installation Guide](INSTALL.md)** - Detailed setup instructions
+- **[Getting Started](GETTING_STARTED.md)** - First steps after installation
+- **[Troubleshooting](TROUBLESHOOTING.md)** - Common issues and solutions
 
-**Deliverable**: Working prototype that catches hardcoded secrets and SQL injection
+### Organization Setup
+- **[Distribution Guide](docs/distribution/DISTRIBUTION_GUIDE.md)** - Sharing with teams
+- **[Rule Library Examples](docs/design/RULES_LIBRARY_EXAMPLES.md)** - Sample rules
 
----
-
-### **Phase 2: Enhanced (4-6 weeks)**
-- [ ] Compliance rule sets (GDPR, HIPAA, SOC2)
-- [ ] Multi-language support
-- [ ] Auto-fix generation with preview
-- [ ] Pre-commit Git hooks
-- [ ] Team dashboard
-
-**Deliverable**: Production-ready for single team
+### Development
+- **[Design Documentation](docs/design/)** - Architecture and design decisions
+- **[Internal Documentation](docs/internal/)** - Development notes and debugging
 
 ---
 
-### **Phase 3: Intelligence (8-12 weeks)**
-- [ ] Semantic code analysis
-- [ ] Learning from past violations
-- [ ] Custom organizational rules
-- [ ] PR review integration
-- [ ] Slack/Teams notifications
+## 🔧 Configuration
 
-**Deliverable**: Smart system that improves over time
+Code Guardrail works **without configuration**, but you can customize it:
 
----
+### Workspace Rules (`.guardrail/`)
 
-### **Phase 4: Enterprise (3-6 months)**
-- [ ] Multi-tenant support
-- [ ] Role-based access control
-- [ ] Audit logs and compliance reports
-- [ ] API for CI/CD integration
-- [ ] Multiple IDE support
-
-**Deliverable**: Enterprise-grade solution
-
----
-
-## 🎯 **Use Case Examples**
-
-### **Example 1: Hardcoded Secret Detection**
-
-**Code:**
-```javascript
-const apiKey = "sk-live-1234567890abcdef";
+```
+your-project/
+├── .guardrail/
+│   ├── security/
+│   │   └── custom-rules.md
+│   ├── compliance/
+│   │   └── gdpr-rules.md
+│   └── README.md
 ```
 
-**Guardrail Response:**
+### Single File (`guardrail-rules.md`)
+
+```markdown
+## Custom API Key Pattern
+- Severity: HIGH
+- Pattern: `company_api_[A-Za-z0-9]{32}`
+- Message: Use environment variables for API keys
+- Category: security
 ```
-🔴 CRITICAL: Hardcoded API Key [SEC-001]
 
-Issue: Stripe live API key detected in source code
+### JSON Config (`.guardrail.json`)
 
-Compliance Impact:
-• SOC2 CC6.1 - Access Control (CRITICAL)
-• GDPR Article 32 - Security of Processing (HIGH)
-
-Risk: Credential exposure to anyone with repository access
-
-Suggested Fix:
-  const apiKey = process.env.STRIPE_API_KEY;
-  if (!apiKey) throw new Error('STRIPE_API_KEY required');
-
-[Apply Fix] [Learn More] [Suppress]
+```json
+{
+  "rules": [
+    {
+      "id": "CUSTOM-001",
+      "pattern": "secret_key\\s*=\\s*['\"][^'\"]+['\"]",
+      "severity": "HIGH",
+      "message": "Hardcoded secret detected"
+    }
+  ]
+}
 ```
 
 ---
 
-### **Example 2: GDPR Compliance - PII Logging**
+## 🤝 Support
 
-**Code:**
-```python
-logging.info(f"Creating user: {email}, SSN: {ssn}")
-```
-
-**Guardrail Response:**
-```
-🟡 HIGH: PII Logged Without Redaction [GDPR-003]
-
-Issue: Personal Identifiable Information logged in plain text
-
-Compliance Impact:
-• GDPR Article 32: Security of Processing (HIGH)
-• GDPR Article 5(1)(f): Integrity and Confidentiality (HIGH)
-
-Recommendation: Redact or hash PII before logging
-
-Suggested Fix:
-  logging.info(f"Creating user: {user_id}")
-  # SSN should never be logged
-
-[Apply Fix] [View GDPR Guide] [Ask AI for Alternatives]
-```
+- **Issues**: [GitHub Issues](https://github.com/AkashAi7/Guardrail/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/AkashAi7/Guardrail/discussions)
 
 ---
 
-### **Example 3: SQL Injection Prevention**
+## 📊 Statistics
 
-**Code:**
-```javascript
-const query = `SELECT * FROM users WHERE id = ${userId}`;
-db.query(query);
-```
-
-**Guardrail Response:**
-```
-🔴 CRITICAL: SQL Injection Vulnerability [SEC-002]
-
-Issue: Unsanitized user input in SQL query
-
-Security Impact:
-• OWASP Top 10: A03:2021 - Injection
-• CWE-89: SQL Injection
-• SOC2 CC6.1 (CRITICAL)
-
-Attack Example:
-  ?id=1 OR 1=1  → Returns all users!
-
-Suggested Fix:
-  const query = 'SELECT * FROM users WHERE id = ?';
-  db.query(query, [userId]);
-
-[Apply Fix] [Run Security Test] [View OWASP Guide]
-```
+- **20+ Built-in Rules** covering major security frameworks
+- **8 Programming Languages** supported out of the box
+- **Zero Backend Dependencies** - runs entirely in VS Code
+- **< 100ms Scan Time** for most files
+- **100% Local** - no data leaves your machine
 
 ---
 
-## 🛠️ **Technology Stack**
+## 📝 License
 
-### **Backend**
-- **Language**: TypeScript / Node.js
-- **Core**: GitHub Copilot SDK (`@github/copilot-sdk`)
-- **API**: Express.js
-- **Rules**: YAML configuration files
-- **Analysis**: AST parsing, regex patterns, LLM semantic checks
-
-### **Frontend (IDE Extension)**
-- **VS Code**: TypeScript extension API
-- **Diagnostics**: Language Server Protocol (LSP)
-- **Code Actions**: Quick fixes, refactorings
-
-### **Optional Enhancements**
-- **Database**: PostgreSQL (for analytics)
-- **Cache**: Redis (for performance)
-- **Queue**: RabbitMQ (for async processing)
-- **Monitoring**: Datadog, Sentry
+MIT License - see [LICENSE](LICENSE) for details.
 
 ---
 
-## 📊 **Success Metrics**
+## 🌟 What's New in v0.4.0
 
-### **Security**
-- 🎯 **Target**: 95% of security issues caught pre-commit
-- 📉 **Result**: 80% reduction in production vulnerabilities
+- ✨ **Organization rule management** - Import, create, and share rules via Command Palette
+- 🎯 **Interactive rule creation** - Wizard-based custom rule setup
+- 🌐 **URL imports** - Download rules from any URL
+- 🔧 **Better status bar** - Click shield icon for quick actions
+- 🐛 **Installation fixes** - Gracefully handles existing installations
+- 📦 **Improved packaging** - Single VSIX install with all dependencies
 
-### **Compliance**
-- 🎯 **Target**: 90% compliance score
-- ✅ **Result**: Zero compliance violations in audits
-
-### **Developer Experience**
-- ⚡ **Target**: < 3 second analysis time
-- 😊 **Target**: 80%+ developer satisfaction
-- 🔧 **Result**: 70%+ issues fixed with one-click
-
-### **Business Impact**
-- ⏱️ 50% faster code review cycles
-- 💰 Reduced cost of finding/fixing issues
-- 🛡️ Improved security posture
-- 📋 Easier compliance audits
+**[View Full Release Notes](RELEASE_NOTES_v0.4.0.md)**
 
 ---
 
-## 🤝 **Contributing**
+<div align="center">
 
-### **How to Add New Rules**
+**Made with ❤️ for secure coding**
 
-1. Create rule file: `rules/category/rule-name.yaml`
-2. Follow format in [RULES_LIBRARY_EXAMPLES.md](./RULES_LIBRARY_EXAMPLES.md)
-3. Test with sample code
-4. Submit PR with test cases
+[⬆ Back to Top](#-code-guardrail)
 
-### **Rule Categories**
-- `security/` - Security vulnerabilities
-- `compliance/` - GDPR, HIPAA, SOC2, PCI-DSS
-- `best-practices/` - Code quality, patterns
-- `performance/` - Performance anti-patterns
-- `custom/` - Organization-specific rules
-
----
-
-## 🔒 **Security & Privacy**
-
-### **Data Handling**
-- ✅ Code analyzed locally or in secure cloud
-- ✅ No code stored permanently
-- ✅ Compliance with data residency requirements
-- ✅ Audit logs for all operations
-
-### **Authentication**
-- GitHub OAuth (for Copilot)
-- BYOK support (Azure OpenAI, etc.)
-- SSO for enterprise deployments
-
----
-
-## 📚 **Additional Resources**
-
-### **GitHub Copilot SDK**
-- [Official SDK Repo](https://github.com/github/copilot-sdk)
-- [Getting Started Guide](https://github.com/github/copilot-sdk/blob/main/docs/getting-started.md)
-- [API Documentation](https://github.com/github/copilot-sdk/tree/main/docs)
-
-### **Compliance Resources**
-- [GDPR Developer Guide](https://gdpr.eu/developer-guide/)
-- [HIPAA Security Rule](https://www.hhs.gov/hipaa/for-professionals/security/index.html)
-- [SOC2 Framework](https://www.aicpa.org/soc2)
-- [OWASP Top 10](https://owasp.org/www-project-top-ten/)
-
-### **Security Standards**
-- [CWE (Common Weakness Enumeration)](https://cwe.mitre.org/)
-- [OWASP Cheat Sheets](https://cheatsheetseries.owasp.org/)
-- [NIST Cybersecurity Framework](https://www.nist.gov/cyberframework)
-
----
-
-## 🎓 **Learning Path**
-
-**For Development Team:**
-1. Read [DESIGN_BRAINSTORM.md](./DESIGN_BRAINSTORM.md) - Understand vision
-2. Read [QUICK_START_IMPLEMENTATION.md](./QUICK_START_IMPLEMENTATION.md) - Build MVP
-3. Test with sample code
-4. Add first 5 rules from [RULES_LIBRARY_EXAMPLES.md](./RULES_LIBRARY_EXAMPLES.md)
-
-**For Security/Compliance Team:**
-1. Read [RULES_LIBRARY_EXAMPLES.md](./RULES_LIBRARY_EXAMPLES.md)
-2. Identify organization-specific requirements
-3. Create custom rules
-4. Define severity levels and blocking policies
-
-**For Leadership:**
-1. Read [DESIGN_BRAINSTORM.md](./DESIGN_BRAINSTORM.md) - Executive summary
-2. Review success metrics and ROI
-3. Plan rollout strategy
-4. Allocate resources for phases
-
----
-
-## 🚀 **Getting Started in 3 Steps**
-
-### **Step 1: Read the Docs** (30 minutes)
-Start with [DESIGN_BRAINSTORM.md](./DESIGN_BRAINSTORM.md) to understand the system.
-
-### **Step 2: Build MVP** (2-3 weeks)
-Follow [QUICK_START_IMPLEMENTATION.md](./QUICK_START_IMPLEMENTATION.md) step-by-step.
-
-### **Step 3: Deploy & Iterate** (Ongoing)
-- Deploy to pilot team
-- Gather feedback
-- Add more rules
-- Expand to organization
-
----
-
-## 📞 **Support & Contact**
-
-- **Issues**: Create GitHub issues for bugs/features
-- **Discussions**: Use GitHub Discussions for questions
-- **Security**: Report vulnerabilities privately
-- **Enterprise**: Contact for custom deployments
-
----
-
-## 📄 **License**
-
-MIT License - See LICENSE file for details
-
----
-
-## 🎉 **Let's Build This!**
-
-You now have everything needed to build a production-grade runtime guardrail system:
-
-✅ **Complete architecture design**  
-✅ **Detailed workflows and sequences**  
-✅ **Working code implementation**  
-✅ **Comprehensive rule library**  
-✅ **Clear roadmap for scaling**  
-
-**Next Step**: Open [QUICK_START_IMPLEMENTATION.md](./QUICK_START_IMPLEMENTATION.md) and start building!
-
----
-
-**Questions? Feedback? Ideas?** Open an issue or start a discussion!
-
-**Made with ❤️ using GitHub Copilot SDK**
+</div>
