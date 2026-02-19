@@ -30,6 +30,8 @@ curl -fsSL https://raw.githubusercontent.com/AkashAi7/Guardrail/main/install.sh 
 
 > 💡 **Missing Node.js or VS Code?** No problem! The installer automatically downloads and installs them for you.
 
+> 🪟 **Windows users:** Having issues? See the [Windows Troubleshooting Guide](./WINDOWS_TROUBLESHOOTING.md)
+
 **[📖 Alternative Installation Methods](#-quick-start---one-command-installation)**
 
 ---
@@ -164,7 +166,10 @@ After installation (one-liner does this automatically):
 4. **Save the file** → See **red squiggles** appear! ✨
 5. **Check status bar** → Shield icon shows issue count
 
-**Not working?** See [troubleshooting](./INSTALL.md#troubleshooting) or open an [issue](https://github.com/AkashAi7/Guardrail/issues).
+**Not working?** 
+- 🪟 Windows users: See [Windows Troubleshooting Guide](./WINDOWS_TROUBLESHOOTING.md)
+- 📖 General issues: See [INSTALL.md troubleshooting](./INSTALL.md#troubleshooting)
+- 🐛 Still stuck: Open an [issue](https://github.com/AkashAi7/Guardrail/issues)
 
 ---
 

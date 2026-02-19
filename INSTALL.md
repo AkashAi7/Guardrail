@@ -290,7 +290,31 @@ curl http://localhost:3000/health
 
 ## 🐛 Troubleshooting
 
-### Service Won't Start
+> 🪟 **Windows Users:** See the comprehensive [Windows Troubleshooting Guide](./WINDOWS_TROUBLESHOOTING.md) for Windows-specific issues, permission errors, and antivirus conflicts.
+
+### Extension Not Working (Standalone Mode)
+
+**If you're just using the VS Code extension without the backend service:**
+
+The extension works standalone with 20+ built-in security rules. No backend service needed!
+
+**Quick test:**
+1. Click the shield icon (🛡️) in VS Code status bar
+2. Select "Test with Sample Code"
+3. Save the file (`Ctrl+S`)
+4. You should see 5+ security issues highlighted
+
+**If test doesn't work:**
+- Check extension is installed: Extensions view (`Ctrl+Shift+X`)
+- Reload VS Code: `Ctrl+Shift+P` → "Developer: Reload Window"
+- Check VS Code version: Must be 1.80.0+ (Help → About)
+- See [Windows Troubleshooting Guide](./WINDOWS_TROUBLESHOOTING.md) for detailed solutions
+
+---
+
+### Service Won't Start (Advanced Mode Only)
+
+**Note:** This section is only for users setting up the optional backend service for AI-powered analysis.
 
 **Issue: Port 3000 already in use**
 
