@@ -126,6 +126,20 @@ Write-Host "✅ Extension packaged: $($vsixFile.Name)" -ForegroundColor Green
 Set-Location ..
 
 # ============================================
+# Copy Additional Documentation
+# ============================================
+Write-Host ""
+Write-Host "📄 Copying documentation..." -ForegroundColor Cyan
+
+# Copy installation instructions to release folder
+Copy-Item "release\INSTALLATION_INSTRUCTIONS.txt" -Destination "$RELEASE_DIR\" -ErrorAction SilentlyContinue
+Copy-Item "SHARE_WITH_USERS.md" -Destination "$RELEASE_DIR\" -ErrorAction SilentlyContinue
+Copy-Item "README.md" -Destination "$RELEASE_DIR\" -ErrorAction SilentlyContinue
+Copy-Item "LICENSE" -Destination "$RELEASE_DIR\" -ErrorAction SilentlyContinue
+
+Write-Host "✅ Documentation copied" -ForegroundColor Green
+
+# ============================================
 # Create ZIP Archives
 # ============================================
 Write-Host ""
