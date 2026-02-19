@@ -34,9 +34,9 @@ if curl -fsSL "$INSTALLER_URL" | bash; then
     echo ""
 else
     echo ""
-    echo -e "${YELLOW}╔═══════════════════════════════════════════════════════════════╗${NC}"
-    echo -e "${YELLOW}║  ❌  Installation Failed                                      ║${NC}"
-    echo -e "${YELLOW}╚═══════════════════════════════════════════════════════════════╝${NC}"
+    echo -e "${RED}╔═══════════════════════════════════════════════════════════════╗${NC}"
+    echo -e "${RED}║  ❌  Installation Failed                                      ║${NC}"
+    echo -e "${RED}╚═══════════════════════════════════════════════════════════════╝${NC}"
     echo ""
     echo -e "${YELLOW}Please check:${NC}"
     echo -e "  ${BLUE}→${NC} Internet connection"

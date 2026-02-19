@@ -30,9 +30,9 @@ try {
     
 } catch {
     Write-Host ""
-    Write-Host "╔═══════════════════════════════════════════════════════════════╗" -ForegroundColor Yellow
-    Write-Host "║  ❌  Installation Failed                                      ║" -ForegroundColor Yellow
-    Write-Host "╚═══════════════════════════════════════════════════════════════╝" -ForegroundColor Yellow
+    Write-Host "╔═══════════════════════════════════════════════════════════════╗" -ForegroundColor Red
+    Write-Host "║  ❌  Installation Failed                                      ║" -ForegroundColor Red
+    Write-Host "╚═══════════════════════════════════════════════════════════════╝" -ForegroundColor Red
     Write-Host ""
     Write-Host "Error: $_" -ForegroundColor Red
     Write-Host ""
