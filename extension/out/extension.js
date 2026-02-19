@@ -39,10 +39,13 @@ const vscode = __importStar(require("vscode"));
 const fs = __importStar(require("fs"));
 const path = __importStar(require("path"));
 const scanner_1 = require("./scanner");
+const ruleParser_1 = require("./ruleParser");
 let diagnosticCollection;
 let scanner;
 let statusBarItem;
 const CONFIG_FILE_NAME = '.guardrail.json';
+const RULES_FOLDER_NAME = '.guardrail';
+const RULES_MD_FILE = 'guardrail-rules.md';
 function activate(context) {
     console.log('Code Guardrail activating...');
     // Initialize components
@@ -84,8 +87,12 @@ function activate(context) {
     });
     // Register on save handler
     const onSave = vscode.workspace.onDidSaveTextDocument((document) => {
-        // Reload rules if config file is saved
-        if (document.fileName.endsWith(CONFIG_FILE_NAME)) {
+        // Reload rules if config/rules file is saved
+        const fileName = path.basename(document.fileName);
+        const isRulesFile = fileName === CONFIG_FILE_NAME ||
+            fileName === RULES_MD_FILE ||
+            document.fileName.includes(RULES_FOLDER_NAME);
+        if (isRulesFile) {
             loadCustomRules();
             vscode.window.showInformationMessage('Code Guardrail rules reloaded');
         }
@@ -114,17 +121,49 @@ function loadCustomRules() {
     }
     scanner.clearCustomRules();
     for (const folder of workspaceFolders) {
+        // 1. Load from .guardrail.json (JSON format)
         const configPath = path.join(folder.uri.fsPath, CONFIG_FILE_NAME);
         if (fs.existsSync(configPath)) {
             try {
                 const configContent = fs.readFileSync(configPath, 'utf8');
                 const config = JSON.parse(configContent);
                 scanner.loadCustomRules(config);
-                console.log(`Loaded custom rules from ${configPath}`);
+                console.log(`Loaded rules from ${configPath}`);
             }
             catch (error) {
                 console.error(`Error loading ${configPath}:`, error);
                 vscode.window.showErrorMessage(`Error loading ${CONFIG_FILE_NAME}: ${error}`);
+            }
+        }
+        // 2. Load from guardrail-rules.md (single markdown file)
+        const mdFilePath = path.join(folder.uri.fsPath, RULES_MD_FILE);
+        if (fs.existsSync(mdFilePath)) {
+            try {
+                const content = fs.readFileSync(mdFilePath, 'utf8');
+                const rules = (0, ruleParser_1.parseRulesFromMarkdown)(content);
+                if (rules.length > 0) {
+                    scanner.loadCustomRules({ rules });
+                    console.log(`Loaded ${rules.length} rules from ${mdFilePath}`);
+                }
+            }
+            catch (error) {
+                console.error(`Error loading ${mdFilePath}:`, error);
+                vscode.window.showErrorMessage(`Error loading ${RULES_MD_FILE}: ${error}`);
+            }
+        }
+        // 3. Load from .guardrail/ folder (multiple .md files)
+        const rulesFolder = path.join(folder.uri.fsPath, RULES_FOLDER_NAME);
+        if (fs.existsSync(rulesFolder)) {
+            try {
+                const rules = (0, ruleParser_1.loadRulesFromFolder)(rulesFolder);
+                if (rules.length > 0) {
+                    scanner.loadCustomRules({ rules });
+                    console.log(`Loaded ${rules.length} rules from ${rulesFolder}`);
+                }
+            }
+            catch (error) {
+                console.error(`Error loading from ${rulesFolder}:`, error);
+                vscode.window.showErrorMessage(`Error loading rules from ${RULES_FOLDER_NAME}/: ${error}`);
             }
         }
     }
@@ -135,34 +174,21 @@ function createDefaultConfig() {
         vscode.window.showWarningMessage('No workspace folder open');
         return;
     }
-    const configPath = path.join(workspaceFolders[0].uri.fsPath, CONFIG_FILE_NAME);
-    if (fs.existsSync(configPath)) {
-        vscode.window.showWarningMessage(`${CONFIG_FILE_NAME} already exists`);
-        vscode.workspace.openTextDocument(configPath).then(doc => {
+    const mdPath = path.join(workspaceFolders[0].uri.fsPath, RULES_MD_FILE);
+    if (fs.existsSync(mdPath)) {
+        vscode.window.showWarningMessage(`${RULES_MD_FILE} already exists`);
+        vscode.workspace.openTextDocument(mdPath).then(doc => {
             vscode.window.showTextDocument(doc);
         });
         return;
     }
-    const defaultConfig = {
-        rules: [
-            {
-                id: 'CUSTOM001',
-                name: 'Example Custom Rule',
-                pattern: 'TODO:\\s*SECURITY',
-                flags: 'gi',
-                severity: 'MEDIUM',
-                message: 'Security-related TODO found. Review and address.',
-                category: 'custom'
-            }
-        ],
-        disabledRules: [],
-        enabledCategories: []
-    };
-    fs.writeFileSync(configPath, JSON.stringify(defaultConfig, null, 2));
-    vscode.workspace.openTextDocument(configPath).then(doc => {
+    // Create simple markdown file instead of JSON
+    const content = (0, ruleParser_1.generateSampleRulesMarkdown)();
+    fs.writeFileSync(mdPath, content);
+    vscode.workspace.openTextDocument(mdPath).then(doc => {
         vscode.window.showTextDocument(doc);
     });
-    vscode.window.showInformationMessage(`Created ${CONFIG_FILE_NAME} with example rule`);
+    vscode.window.showInformationMessage(`Created ${RULES_MD_FILE} with example rules`);
 }
 function shouldAnalyze(document) {
     if (document.uri.scheme !== 'file')
