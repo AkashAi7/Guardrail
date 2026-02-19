@@ -132,10 +132,23 @@ try {
 Write-Host ""
 Write-Host "📦 Extracting service..." -ForegroundColor Cyan
 
-# Create install directory
+# Stop existing service if running
 if (Test-Path $InstallDir) {
+    Write-Host "  Checking for running service..." -ForegroundColor Yellow
+    try {
+        $existingProcess = Get-NetTCPConnection -LocalPort 3000 -ErrorAction SilentlyContinue | Select-Object -First 1
+        if ($existingProcess) {
+            $pid = $existingProcess.OwningProcess
+            Write-Host "  Stopping existing service (PID: $pid)..." -ForegroundColor Yellow
+            Stop-Process -Id $pid -Force -ErrorAction SilentlyContinue
+            Start-Sleep -Seconds 2
+        }
+    } catch {
+        # Service not running, continue
+    }
+    
     Write-Host "  Removing existing installation..." -ForegroundColor Yellow
-    Remove-Item $InstallDir -Recurse -Force
+    Remove-Item $InstallDir -Recurse -Force -ErrorAction SilentlyContinue
 }
 
 New-Item -ItemType Directory -Path $InstallDir -Force | Out-Null
@@ -190,11 +203,26 @@ Write-Host ""
 Write-Host "🔧 Installing VS Code extension..." -ForegroundColor Cyan
 
 try {
-    code --install-extension $tempVSIX --force | Out-Null
-    Remove-Item $tempVSIX -Force
-    Write-Host "✅ Extension installed" -ForegroundColor Green
+    # Check if extension is already installed
+    $installedExtensions = code --list-extensions 2>&1
+    if ($installedExtensions -match "akashai7\.code-guardrail") {
+        Write-Host "  Uninstalling old version..." -ForegroundColor Yellow
+        code --uninstall-extension akashai7.code-guardrail --force 2>&1 | Out-Null
+        Start-Sleep -Seconds 2
+    }
+    
+    # Install new version
+    $installOutput = code --install-extension $tempVSIX --force 2>&1
+    if ($LASTEXITCODE -eq 0) {
+        Write-Host "✅ Extension installed" -ForegroundColor Green
+    } else {
+        Write-Host "⚠️ Extension installation completed with warnings" -ForegroundColor Yellow
+        Write-Host "   Output: $installOutput" -ForegroundColor Gray
+    }
+    Remove-Item $tempVSIX -Force -ErrorAction SilentlyContinue
 } catch {
     Write-Host "❌ Failed to install extension: $_" -ForegroundColor Red
+    Remove-Item $tempVSIX -Force -ErrorAction SilentlyContinue
     exit 1
 }
 
@@ -205,6 +233,20 @@ Write-Host ""
 Write-Host "🚀 Starting service..." -ForegroundColor Cyan
 
 Set-Location $InstallDir
+
+# Check if port is already in use
+try {
+    $portInUse = Get-NetTCPConnection -LocalPort 3000 -ErrorAction SilentlyContinue
+    if ($portInUse) {
+        Write-Host "⚠️ Port 3000 is already in use" -ForegroundColor Yellow
+        $existingPid = $portInUse.OwningProcess
+        Write-Host "   Stopping existing process (PID: $existingPid)..." -ForegroundColor Yellow
+        Stop-Process -Id $existingPid -Force -ErrorAction SilentlyContinue
+        Start-Sleep -Seconds 2
+    }
+} catch {
+    # Port is free, continue
+}
 
 # Start service in background
 $serviceProcess = Start-Process -FilePath "node" `
