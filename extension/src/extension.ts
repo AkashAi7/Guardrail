@@ -781,6 +781,7 @@ function shouldAnalyze(document: vscode.TextDocument): boolean {
 async function analyzeDocument(document: vscode.TextDocument) {
     const text = document.getText();
     let findings: Finding[] = [];
+    let analysisSource: 'AI' | 'Regex' = 'Regex'; // Track which engine was used
     
     // Try to use backend service first, fallback to local scanning
     if (serviceManager && serviceManager.isRunning()) {
@@ -803,7 +804,7 @@ async function analyzeDocument(document: vscode.TextDocument) {
                     const endOffset = startOffset + (finding.snippet?.length || 50);
                     
                     return {
-                        ruleId: finding.id || 'AI-001',
+                        ruleId: `🤖 ${finding.id || 'AI-001'}`, // Add AI emoji to rule ID
                         severity: finding.severity || 'MEDIUM',
                         message: `${finding.title}: ${finding.description}`,
                         startOffset: startOffset,
@@ -813,16 +814,21 @@ async function analyzeDocument(document: vscode.TextDocument) {
                     };
                 });
                 
+                analysisSource = 'AI';
                 console.log(`✅ AI analysis complete: ${findings.length} issues found`);
             }
         } catch (error: any) {
-            console.warn('Backend analysis failed, using local scanning:', error.message);
+            console.warn('⚠️ Backend analysis failed, using local scanning:', error.message);
             // Fall through to local scanning
             findings = scanner.scan(text, document.fileName);
+            analysisSource = 'Regex';
+            console.log(`📝 Regex analysis complete: ${findings.length} issues found`);
         }
     } else {
         // Use local scanning
         findings = scanner.scan(text, document.fileName);
+        analysisSource = 'Regex';
+        console.log(`📝 Regex analysis complete: ${findings.length} issues found (AI service not available)`);
     }
     
     const diagnostics: vscode.Diagnostic[] = findings.map(finding => {
@@ -832,28 +838,41 @@ async function analyzeDocument(document: vscode.TextDocument) {
         
         const severity = mapSeverity(finding.severity);
         const diagnostic = new vscode.Diagnostic(range, finding.message, severity);
-        diagnostic.source = 'Code Guardrail';
+        
+        // Add clear source indicator
+        diagnostic.source = analysisSource === 'AI' 
+            ? 'Code Guardrail (🤖 AI)' 
+            : 'Code Guardrail (📝 Regex)';
         diagnostic.code = finding.ruleId;
+        
+        // Add tags to differentiate visually
+        if (analysisSource === 'AI') {
+            diagnostic.tags = [vscode.DiagnosticTag.Unnecessary]; // Just for visual distinction
+        }
         
         return diagnostic;
     });
     
     diagnosticCollection.set(document.uri, diagnostics);
     
+    // Update status bar with analysis source indicator
+    const sourceEmoji = analysisSource === 'AI' ? '🤖' : '📝';
+    const sourceLabel = analysisSource === 'AI' ? 'AI' : 'Regex';
+    
     if (findings.length > 0) {
         const highCount = findings.filter(f => f.severity === 'HIGH').length;
         if (highCount > 0) {
-            statusBarItem.text = `$(alert) Guardrail: ${findings.length} issue(s) (${highCount} critical)`;
+            statusBarItem.text = `$(alert) Guardrail (${sourceEmoji}): ${findings.length} issue(s) (${highCount} critical)`;
             statusBarItem.backgroundColor = new vscode.ThemeColor('statusBarItem.errorBackground');
         } else {
-            statusBarItem.text = `$(warning) Guardrail: ${findings.length} issue(s)`;
+            statusBarItem.text = `$(warning) Guardrail (${sourceEmoji}): ${findings.length} issue(s)`;
             statusBarItem.backgroundColor = new vscode.ThemeColor('statusBarItem.warningBackground');
         }
-        statusBarItem.tooltip = `Code Guardrail found ${findings.length} security/compliance issue(s). Click to see options.`;
+        statusBarItem.tooltip = `Code Guardrail found ${findings.length} security/compliance issue(s) using ${sourceLabel} analysis. Click to see options.`;
     } else {
-        statusBarItem.text = '$(shield-check) Guardrail: Clean';
+        statusBarItem.text = `$(shield-check) Guardrail (${sourceEmoji}): Clean`;
         statusBarItem.backgroundColor = undefined;
-        statusBarItem.tooltip = 'Code Guardrail - No issues found. Click for options.';
+        statusBarItem.tooltip = `Code Guardrail - No issues found (${sourceLabel} analysis). Click for options.`;
     }
 }
 
