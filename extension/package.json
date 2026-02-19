@@ -1,8 +1,8 @@
 {
   "name": "code-guardrail",
   "displayName": "Code Guardrail",
-  "description": "AI-powered security & compliance scanner - hybrid intelligence with local fallback",
-  "version": "0.5.0",
+  "description": "AI-powered security & compliance scanner - fully autonomous with auto-setup",
+  "version": "0.7.0",
   "publisher": "AkashAi7",
   "icon": "icon.png",
   "repository": {

@@ -48,6 +48,13 @@ test/**
 # Documentation (keep README.md and CHANGELOG.md)
 # docs/**
 
+# Include bundled service (auto-extracts on first run)
+!bundled-service/**
+
+# Bundle scripts (development only)
+bundle-service.ps1
+bundle-service.sh
+
 # Misc
 .DS_Store
 Thumbs.db

@@ -24,15 +24,15 @@ export class ServiceManager {
             return true;
         }
 
-        // Find service directory
-        const servicePath = this.getServicePath();
+        // Find service directory (may trigger auto-extraction)
+        const servicePath = await this.getServicePath();
         if (!servicePath) {
             vscode.window.showWarningMessage(
-                'Guardrail backend service not found. Using local pattern matching only.',
+                'Guardrail AI service unavailable. The extension requires the service to function.',
                 'Learn More'
             ).then(selection => {
                 if (selection === 'Learn More') {
-                    vscode.env.openExternal(vscode.Uri.parse('https://github.com/AkashAi7/Guardrail#backend-service'));
+                    vscode.env.openExternal(vscode.Uri.parse('https://github.com/AkashAi7/Guardrail#installation'));
                 }
             });
             return false;
@@ -125,15 +125,15 @@ export class ServiceManager {
     /**
      * Find the service directory
      */
-    private getServicePath(): string | null {
+    private async getServicePath(): Promise<string | null> {
         // Try multiple possible locations
         const possiblePaths = [
             // Development: ../service from extension folder
             path.join(this.context.extensionPath, '..', 'service'),
             // Bundled: service folder inside extension
             path.join(this.context.extensionPath, 'service'),
-            // Global installation
-            path.join(require('os').homedir(), '.guardrail', 'service')
+            // User's home directory (auto-extracted)
+            path.join(require('os').homedir(), '.guardrail-service')
         ];
 
         for (const servicePath of possiblePaths) {
@@ -144,8 +144,112 @@ export class ServiceManager {
             }
         }
 
+        // If not found, try to extract bundled service
+        console.log('⚙️ Service not found, checking for bundled service...');
+        const extracted = await this.extractBundledService();
+        if (extracted) {
+            return path.join(require('os').homedir(), '.guardrail-service');
+        }
+
         console.warn('⚠️ Service not found in any expected location');
         return null;
+    }
+
+    /**
+     * Extract bundled service to user's home directory and install dependencies
+     */
+    private async extractBundledService(): Promise<boolean> {
+        const bundledServicePath = path.join(this.context.extensionPath, 'bundled-service');
+        const targetPath = path.join(require('os').homedir(), '.guardrail-service');
+
+        // Check if bundled service exists
+        if (!fs.existsSync(bundledServicePath)) {
+            console.log('❌ No bundled service found');
+            return false;
+        }
+
+        try {
+            console.log('📦 Extracting bundled service...');
+            
+            // Copy bundled service to target location
+            if (fs.existsSync(targetPath)) {
+                // Clean existing installation
+                fs.rmSync(targetPath, { recursive: true, force: true });
+            }
+            
+            this.copyRecursiveSync(bundledServicePath, targetPath);
+            console.log(`✅ Service extracted to: ${targetPath}`);
+
+            // Install dependencies
+            console.log('📥 Installing service dependencies (one-time setup)...');
+            vscode.window.showInformationMessage('⚙️ Setting up Guardrail AI service (one-time operation)...');
+            
+            const installed = await this.installServiceDependencies(targetPath);
+            if (installed) {
+                console.log('✅ Service setup complete!');
+                vscode.window.showInformationMessage('✅ Guardrail AI service ready!');
+                return true;
+            } else {
+                console.error('❌ Failed to install service dependencies');
+                return false;
+            }
+        } catch (error) {
+            console.error('❌ Failed to extract bundled service:', error);
+            return false;
+        }
+    }
+
+    /**
+     * Recursively copy directory
+     */
+    private copyRecursiveSync(src: string, dest: string): void {
+        if (fs.statSync(src).isDirectory()) {
+            fs.mkdirSync(dest, { recursive: true });
+            fs.readdirSync(src).forEach(item => {
+                this.copyRecursiveSync(path.join(src, item), path.join(dest, item));
+            });
+        } else {
+            fs.copyFileSync(src, dest);
+        }
+    }
+
+    /**
+     * Install service dependencies using npm
+     */
+    private async installServiceDependencies(servicePath: string): Promise<boolean> {
+        return new Promise((resolve) => {
+            const npmCmd = process.platform === 'win32' ? 'npm.cmd' : 'npm';
+            
+            const installProcess = spawn(npmCmd, ['install', '--production', '--silent'], {
+                cwd: servicePath,
+                stdio: ['ignore', 'pipe', 'pipe']
+            });
+
+            let output = '';
+            installProcess.stdout?.on('data', (data) => {
+                output += data.toString();
+            });
+
+            installProcess.stderr?.on('data', (data) => {
+                output += data.toString();
+            });
+
+            installProcess.on('close', (code) => {
+                if (code === 0) {
+                    console.log('✅ npm install completed');
+                    resolve(true);
+                } else {
+                    console.error('❌ npm install failed:', output);
+                    resolve(false);
+                }
+            });
+
+            // Timeout after 2 minutes
+            setTimeout(() => {
+                installProcess.kill();
+                resolve(false);
+            }, 120000);
+        });
     }
 
     /**
