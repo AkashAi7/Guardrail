@@ -2,7 +2,7 @@
 
 > **AI-powered security & compliance analysis for VS Code** - Hybrid intelligence with local fallback!
 
-[![Version](https://img.shields.io/badge/version-0.4.0-blue.svg)](https://github.com/AkashAi7/Guardrail/releases)
+[![Version](https://img.shields.io/badge/version-0.5.0-blue.svg)](https://github.com/AkashAi7/Guardrail/releases)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![VS Code](https://img.shields.io/badge/VS%20Code-1.85%2B-007ACC.svg)](https://code.visualstudio.com/)
 
@@ -51,8 +51,8 @@ irm https://raw.githubusercontent.com/AkashAi7/Guardrail/main/scripts/install-fr
 
 **Manual Install:**
 
-1. Download [code-guardrail-0.4.0.vsix](https://github.com/AkashAi7/Guardrail/releases/download/v0.4.0/code-guardrail-0.4.0.vsix)
-2. Run: `code --install-extension code-guardrail-0.4.0.vsix`
+1. Download [code-guardrail-0.5.0.vsix](https://github.com/AkashAi7/Guardrail/releases/download/v0.5.0/code-guardrail-0.5.0.vsix)
+2. Run: `code --install-extension code-guardrail-0.5.0.vsix`
 3. Reload VS Code
 
 **Verify Installation:**
@@ -235,16 +235,16 @@ MIT License - see [LICENSE](LICENSE) for details.
 
 ---
 
-## 🌟 What's New in v0.4.0
+## 🌟 What's New in v0.5.0
 
-- ✨ **Organization rule management** - Import, create, and share rules via Command Palette
-- 🎯 **Interactive rule creation** - Wizard-based custom rule setup
-- 🌐 **URL imports** - Download rules from any URL
-- 🔧 **Better status bar** - Click shield icon for quick actions
-- 🐛 **Installation fixes** - Gracefully handles existing installations
-- 📦 **Improved packaging** - Single VSIX install with all dependencies
+- 🤖 **AI-Powered Analysis** - GitHub Copilot SDK integration for intelligent code review
+- 🔄 **Hybrid Intelligence** - AI analysis with automatic fallback to local patterns
+- 🚀 **Auto-Start Service** - Backend service launches automatically (zero configuration)
+- 🎯 **Better Detection** - Finds 2x more issues with contextual understanding
+- 📊 **Smart Status** - Shows whether AI or local analysis is active
+- 🔒 **Privacy First** - All processing happens locally on your machine
 
-**[View Full Release Notes](RELEASE_NOTES_v0.4.0.md)**
+**[View Full Release Notes](RELEASE_NOTES_v0.5.0.md)**
 
 ---
 

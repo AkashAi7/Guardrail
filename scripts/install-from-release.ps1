@@ -3,7 +3,7 @@
 
 param(
     [string]$InstallDir = "$env:USERPROFILE\.guardrail",
-    [string]$Version = "0.4.0"
+    [string]$Version = "0.5.0"
 )
 
 $ErrorActionPreference = "Stop"
