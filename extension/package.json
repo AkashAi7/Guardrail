@@ -52,6 +52,22 @@
         "title": "Code Guardrail: Import Rules from File"
       },
       {
+        "command": "codeGuardrail.importRulesFromUrl",
+        "title": "Code Guardrail: Import Rules from URL"
+      },
+      {
+        "command": "codeGuardrail.createCustomRule",
+        "title": "Code Guardrail: Create New Custom Rule"
+      },
+      {
+        "command": "codeGuardrail.setupOrgRules",
+        "title": "Code Guardrail: Setup Organization Rules"
+      },
+      {
+        "command": "codeGuardrail.manageRules",
+        "title": "Code Guardrail: Manage Rules"
+      },
+      {
         "command": "codeGuardrail.showQuickPick",
         "title": "Code Guardrail: Show Menu"
       }

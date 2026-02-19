@@ -87,6 +87,21 @@ function activate(context) {
                 action: 'analyze'
             },
             {
+                label: '$(book) Manage Rules',
+                description: 'Create, import, or organize rules',
+                action: 'manage'
+            },
+            {
+                label: '$(add) Create Custom Rule',
+                description: 'Interactively create a new security rule',
+                action: 'create-rule'
+            },
+            {
+                label: '$(cloud-download) Import from URL',
+                description: 'Download rules from organization repository',
+                action: 'import-url'
+            },
+            {
                 label: '$(refresh) Reload Rules',
                 description: 'Reload custom rules from workspace',
                 action: 'reload'
@@ -95,11 +110,6 @@ function activate(context) {
                 label: '$(clear-all) Clear All Issues',
                 description: 'Remove all diagnostics from the Problems panel',
                 action: 'clear'
-            },
-            {
-                label: '$(file-add) Create Sample Rules',
-                description: 'Generate example rules file in workspace',
-                action: 'init'
             },
             {
                 label: '$(info) About Code Guardrail',
@@ -118,14 +128,20 @@ function activate(context) {
                 case 'analyze':
                     vscode.commands.executeCommand('codeGuardrail.analyzeFile');
                     break;
+                case 'manage':
+                    vscode.commands.executeCommand('codeGuardrail.manageRules');
+                    break;
+                case 'create-rule':
+                    vscode.commands.executeCommand('codeGuardrail.createCustomRule');
+                    break;
+                case 'import-url':
+                    vscode.commands.executeCommand('codeGuardrail.importRulesFromUrl');
+                    break;
                 case 'reload':
                     vscode.commands.executeCommand('codeGuardrail.reloadRules');
                     break;
                 case 'clear':
                     vscode.commands.executeCommand('codeGuardrail.clearDiagnostics');
-                    break;
-                case 'init':
-                    vscode.commands.executeCommand('codeGuardrail.initConfig');
                     break;
                 case 'about':
                     const builtInCount = scanner.getBuiltInRuleIds().length;
@@ -150,6 +166,349 @@ function activate(context) {
     });
     const initCmd = vscode.commands.registerCommand('codeGuardrail.initConfig', () => {
         createDefaultConfig();
+    });
+    // Import rules from URL (for organization repositories)
+    const importUrlCmd = vscode.commands.registerCommand('codeGuardrail.importRulesFromUrl', async () => {
+        const workspaceFolders = vscode.workspace.workspaceFolders;
+        if (!workspaceFolders) {
+            vscode.window.showWarningMessage('Open a workspace folder first');
+            return;
+        }
+        const url = await vscode.window.showInputBox({
+            prompt: 'Enter URL to rules file (MD, JSON, or GitHub raw URL)',
+            placeHolder: 'https://raw.githubusercontent.com/yourorg/rules/main/security-rules.md',
+            validateInput: (value) => {
+                if (!value)
+                    return 'URL is required';
+                try {
+                    new URL(value);
+                    return null;
+                }
+                catch {
+                    return 'Invalid URL format';
+                }
+            }
+        });
+        if (!url)
+            return;
+        vscode.window.withProgress({
+            location: vscode.ProgressLocation.Notification,
+            title: 'Downloading rules from URL...',
+            cancellable: false
+        }, async () => {
+            try {
+                const https = require('https');
+                const http = require('http');
+                const protocol = url.startsWith('https') ? https : http;
+                return new Promise((resolve, reject) => {
+                    protocol.get(url, (res) => {
+                        let data = '';
+                        res.on('data', (chunk) => { data += chunk; });
+                        res.on('end', () => {
+                            // Save to .guardrail/ folder
+                            const rulesDir = path.join(workspaceFolders[0].uri.fsPath, RULES_FOLDER_NAME);
+                            if (!fs.existsSync(rulesDir)) {
+                                fs.mkdirSync(rulesDir, { recursive: true });
+                            }
+                            const fileName = path.basename(new URL(url).pathname);
+                            const outputPath = path.join(rulesDir, fileName);
+                            fs.writeFileSync(outputPath, data);
+                            loadCustomRules();
+                            vscode.window.showInformationMessage(`Imported rules from ${fileName}`);
+                            // Open the file
+                            vscode.workspace.openTextDocument(outputPath).then(doc => {
+                                vscode.window.showTextDocument(doc);
+                            });
+                            resolve(null);
+                        });
+                    }).on('error', (err) => {
+                        vscode.window.showErrorMessage(`Failed to download: ${err.message}`);
+                        reject(err);
+                    });
+                });
+            }
+            catch (error) {
+                vscode.window.showErrorMessage(`Failed to import from URL: ${error.message}`);
+            }
+        });
+    });
+    // Create new custom rule interactively
+    const createRuleCmd = vscode.commands.registerCommand('codeGuardrail.createCustomRule', async () => {
+        const workspaceFolders = vscode.workspace.workspaceFolders;
+        if (!workspaceFolders) {
+            vscode.window.showWarningMessage('Open a workspace folder first');
+            return;
+        }
+        // Gather rule details through prompts
+        const ruleName = await vscode.window.showInputBox({
+            prompt: 'Enter rule name',
+            placeHolder: 'Detect Hardcoded Credentials'
+        });
+        if (!ruleName)
+            return;
+        const severity = await vscode.window.showQuickPick(['HIGH', 'MEDIUM', 'LOW', 'INFO'], {
+            placeHolder: 'Select severity level'
+        });
+        if (!severity)
+            return;
+        const category = await vscode.window.showQuickPick([
+            'security', 'compliance', 'best-practices', 'performance', 'custom'
+        ], {
+            placeHolder: 'Select rule category'
+        });
+        if (!category)
+            return;
+        const pattern = await vscode.window.showInputBox({
+            prompt: 'Enter regex pattern to detect',
+            placeHolder: '(api[_-]?key|token)\\s*[:=]\\s*["\'][^"\']+["\']',
+            validateInput: (value) => {
+                if (!value)
+                    return 'Pattern is required';
+                try {
+                    new RegExp(value, 'gi');
+                    return null;
+                }
+                catch {
+                    return 'Invalid regex pattern';
+                }
+            }
+        });
+        if (!pattern)
+            return;
+        const message = await vscode.window.showInputBox({
+            prompt: 'Enter warning message',
+            placeHolder: 'Hardcoded credentials detected. Use environment variables.',
+            value: `${ruleName} - please review this code`
+        });
+        if (!message)
+            return;
+        // Create rule in markdown format
+        const ruleId = ruleName.replace(/\s+/g, '-').toUpperCase();
+        const ruleContent = `## ${ruleName}
+- Severity: ${severity}
+- Pattern: \`${pattern}\`
+- Message: ${message}
+- Category: ${category}
+
+### Description
+${ruleName} detected in code.
+
+### Examples
+
+#### ❌ Bad
+\`\`\`typescript
+// Add example of bad code here
+\`\`\`
+
+#### ✅ Good
+\`\`\`typescript
+// Add example of good code here
+\`\`\`
+`;
+        // Save to .guardrail/ folder
+        const rulesDir = path.join(workspaceFolders[0].uri.fsPath, RULES_FOLDER_NAME);
+        if (!fs.existsSync(rulesDir)) {
+            fs.mkdirSync(rulesDir, { recursive: true });
+        }
+        const fileName = `custom-${ruleId.toLowerCase()}.md`;
+        const filePath = path.join(rulesDir, fileName);
+        fs.writeFileSync(filePath, ruleContent);
+        loadCustomRules();
+        vscode.window.showInformationMessage(`Created custom rule: ${fileName}`);
+        // Open the file for editing
+        const doc = await vscode.workspace.openTextDocument(filePath);
+        vscode.window.showTextDocument(doc);
+    });
+    // Setup organization rules structure
+    const setupOrgCmd = vscode.commands.registerCommand('codeGuardrail.setupOrgRules', async () => {
+        const workspaceFolders = vscode.workspace.workspaceFolders;
+        if (!workspaceFolders) {
+            vscode.window.showWarningMessage('Open a workspace folder first');
+            return;
+        }
+        const choice = await vscode.window.showQuickPick([
+            {
+                label: '$(cloud-download) Clone from Organization Repository',
+                description: 'Import rules from a Git repository',
+                action: 'clone'
+            },
+            {
+                label: '$(file-directory) Create Local Rules Structure',
+                description: 'Set up .guardrail/ folder with examples',
+                action: 'create'
+            },
+            {
+                label: '$(link) Import from URL',
+                description: 'Download rules from a URL',
+                action: 'url'
+            }
+        ], {
+            placeHolder: 'How would you like to set up organization rules?'
+        });
+        if (!choice)
+            return;
+        const workspaceRoot = workspaceFolders[0].uri.fsPath;
+        const rulesDir = path.join(workspaceRoot, RULES_FOLDER_NAME);
+        switch (choice.action) {
+            case 'clone':
+                const repoUrl = await vscode.window.showInputBox({
+                    prompt: 'Enter Git repository URL',
+                    placeHolder: 'https://github.com/yourorg/guardrail-rules.git'
+                });
+                if (!repoUrl)
+                    return;
+                vscode.window.withProgress({
+                    location: vscode.ProgressLocation.Notification,
+                    title: 'Cloning organization rules repository...',
+                    cancellable: false
+                }, async () => {
+                    try {
+                        const { exec } = require('child_process');
+                        await new Promise((resolve, reject) => {
+                            exec(`git clone ${repoUrl} "${rulesDir}"`, (error, stdout, stderr) => {
+                                if (error)
+                                    reject(error);
+                                else
+                                    resolve(stdout);
+                            });
+                        });
+                        loadCustomRules();
+                        vscode.window.showInformationMessage('✅ Organization rules cloned successfully!');
+                    }
+                    catch (error) {
+                        vscode.window.showErrorMessage(`Failed to clone: ${error.message}`);
+                    }
+                });
+                break;
+            case 'create':
+                // Create directory structure
+                if (!fs.existsSync(rulesDir)) {
+                    fs.mkdirSync(rulesDir, { recursive: true });
+                }
+                const subDirs = ['security', 'compliance', 'best-practices'];
+                subDirs.forEach(dir => {
+                    const dirPath = path.join(rulesDir, dir);
+                    if (!fs.existsSync(dirPath)) {
+                        fs.mkdirSync(dirPath, { recursive: true });
+                    }
+                });
+                // Create README
+                const readme = `# Organization Guardrail Rules
+
+This folder contains custom security and compliance rules for your organization.
+
+## Structure
+
+- \`security/\` - Security-related rules
+- \`compliance/\` - Compliance rules (GDPR, HIPAA, etc.)
+- \`best-practices/\` - Code quality and best practices
+
+## Adding Rules
+
+Create markdown files in the appropriate folder. See example rules below.
+`;
+                fs.writeFileSync(path.join(rulesDir, 'README.md'), readme);
+                // Create sample rule
+                const sampleRule = `## Company API Key Detection
+- Severity: HIGH
+- Pattern: \`company_api_[A-Za-z0-9]{32}\`
+- Message: Company API keys must not be hardcoded. Use environment variables.
+- Category: security
+
+### Description
+Detects hardcoded company API keys in source code.
+
+### Examples
+
+#### ❌ Bad
+\`\`\`typescript
+const apiKey = "company_api_abc123xyz789";
+\`\`\`
+
+#### ✅ Good
+\`\`\`typescript
+const apiKey = process.env.COMPANY_API_KEY;
+\`\`\`
+`;
+                fs.writeFileSync(path.join(rulesDir, 'security', 'company-api-keys.md'), sampleRule);
+                loadCustomRules();
+                vscode.window.showInformationMessage('✅ Organization rules structure created!');
+                // Open README
+                const readmePath = path.join(rulesDir, 'README.md');
+                const doc = await vscode.workspace.openTextDocument(readmePath);
+                vscode.window.showTextDocument(doc);
+                break;
+            case 'url':
+                vscode.commands.executeCommand('codeGuardrail.importRulesFromUrl');
+                break;
+        }
+    });
+    // Manage rules
+    const manageRulesCmd = vscode.commands.registerCommand('codeGuardrail.manageRules', async () => {
+        const workspaceFolders = vscode.workspace.workspaceFolders;
+        if (!workspaceFolders) {
+            vscode.window.showWarningMessage('Open a workspace folder first');
+            return;
+        }
+        const rulesDir = path.join(workspaceFolders[0].uri.fsPath, RULES_FOLDER_NAME);
+        const hasRules = fs.existsSync(rulesDir);
+        const items = [
+            {
+                label: '$(add) Create New Custom Rule',
+                description: 'Interactively create a new rule',
+                action: 'create'
+            },
+            {
+                label: '$(cloud-download) Import from URL',
+                description: 'Download rules from a URL',
+                action: 'import-url'
+            },
+            {
+                label: '$(file-add) Import from File',
+                description: 'Import from PDF, Word, or Markdown',
+                action: 'import-file'
+            },
+            {
+                label: '$(folder) Setup Organization Rules',
+                description: 'Initialize organization rules structure',
+                action: 'setup'
+            },
+            ...(hasRules ? [{
+                    label: '$(folder-opened) Open Rules Folder',
+                    description: 'View all custom rules',
+                    action: 'open'
+                }] : []),
+            {
+                label: '$(refresh) Reload Rules',
+                description: 'Reload all rules from workspace',
+                action: 'reload'
+            }
+        ];
+        const choice = await vscode.window.showQuickPick(items, {
+            placeHolder: 'Manage Code Guardrail Rules'
+        });
+        if (!choice)
+            return;
+        switch (choice.action) {
+            case 'create':
+                vscode.commands.executeCommand('codeGuardrail.createCustomRule');
+                break;
+            case 'import-url':
+                vscode.commands.executeCommand('codeGuardrail.importRulesFromUrl');
+                break;
+            case 'import-file':
+                vscode.commands.executeCommand('codeGuardrail.importRules');
+                break;
+            case 'setup':
+                vscode.commands.executeCommand('codeGuardrail.setupOrgRules');
+                break;
+            case 'open':
+                vscode.commands.executeCommand('vscode.openFolder', vscode.Uri.file(rulesDir), false);
+                break;
+            case 'reload':
+                vscode.commands.executeCommand('codeGuardrail.reloadRules');
+                break;
+        }
     });
     // Import rules from file (PDF, Word, MD, TXT)
     const importCmd = vscode.commands.registerCommand('codeGuardrail.importRules', async () => {
@@ -246,7 +605,7 @@ function activate(context) {
     if (vscode.window.activeTextEditor) {
         analyzeDocument(vscode.window.activeTextEditor.document);
     }
-    context.subscriptions.push(diagnosticCollection, statusBarItem, analyzeCmd, clearCmd, showQuickPickCmd, reloadCmd, initCmd, importCmd, onSave, onOpen);
+    context.subscriptions.push(diagnosticCollection, statusBarItem, analyzeCmd, clearCmd, showQuickPickCmd, reloadCmd, initCmd, importCmd, importUrlCmd, createRuleCmd, setupOrgCmd, manageRulesCmd, onSave, onOpen);
     // Show welcome message with clear next steps
     const builtInRuleCount = scanner.getBuiltInRuleIds().length;
     const message = `Code Guardrail is ready! ${builtInRuleCount} built-in security rules active. No setup required - just start coding!`;

@@ -3,7 +3,7 @@
 
 param(
     [string]$InstallDir = "$env:USERPROFILE\.guardrail",
-    [string]$Version = "0.1.0"
+    [string]$Version = "0.4.0"
 )
 
 $ErrorActionPreference = "Stop"
@@ -11,7 +11,7 @@ $ErrorActionPreference = "Stop"
 $REPO_URL = "https://github.com/AkashAi7/Guardrail"
 $RELEASE_BASE_URL = "$REPO_URL/releases/download/v$Version"
 $SERVICE_ZIP_URL = "$RELEASE_BASE_URL/guardrail-service-v$Version.zip"
-$EXTENSION_URL = "$RELEASE_BASE_URL/code-guardrail-0.1.0.vsix"
+$EXTENSION_URL = "$RELEASE_BASE_URL/code-guardrail-$Version.vsix"
 
 Write-Host ""
 Write-Host "========================================" -ForegroundColor Cyan

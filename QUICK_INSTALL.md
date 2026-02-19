@@ -21,6 +21,12 @@ Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManage
 - ✅ Downloads and installs Guardrail
 - ⏱️ Takes 3-8 minutes depending on prerequisites
 
+**After Installation:**
+```powershell
+# Verify installation
+iwr -useb https://raw.githubusercontent.com/AkashAi7/Guardrail/main/scripts/verify-installation.ps1 | iex
+```
+
 ---
 
 ### macOS / Linux
@@ -159,52 +165,85 @@ code --uninstall-extension AkashAi7.code-guardrail
 
 ---
 
+## ✅ Verify Installation
+
+After installation completes, verify everything is working:
+
+```powershell
+# Run verification script
+iwr -useb https://raw.githubusercontent.com/AkashAi7/Guardrail/main/scripts/verify-installation.ps1 | iex
+```
+
+**What to expect:**
+- ✅ Extension version 0.4.0 or higher installed
+- ✅ Shield icon (🛡️) appears in VS Code status bar
+- ✅ Test file shows red squiggles on security issues
+- ✅ Problems panel shows "Code Guardrail" issues
+
+**Quick Manual Test:**
+1. Restart VS Code
+2. Open any `.ts` or `.js` file  
+3. Add this line: `const password = "admin123";`
+4. Save the file (Ctrl+S)
+5. You should see a red squiggle and issue in Problems panel (Ctrl+Shift+M)
+
+---
+
 ## Troubleshooting
 
-### "Execution policy" error on Windows
+### Extension Not Showing Highlights?
 
-Run PowerShell as Administrator:
+**Most Common Issue: **Wrong version installed**
+
+Check your extension version:
+1. VS Code → Extensions (Ctrl+Shift+X)
+2. Search "Code Guardrail"
+3. Should show version **0.4.0** or higher
+4. If 0.1.0 or lower → Uninstall and reinstall
+
+**Quick Fix:**
+```powershell
+# Uninstall old version
+code --uninstall-extension akashai7.code-guardrail
+
+# Reinstall latest
+iwr -useb https://raw.githubusercontent.com/AkashAi7/Guardrail/main/install.ps1 | iex
+```
+
+### Other Common Issues
+
+### Other Common Issues
+
+#### "Execution policy" error on Windows
 ```powershell
 Set-ExecutionPolicy RemoteSigned -Scope CurrentUser
 ```
 
-### "Permission denied" on macOS/Linux
+#### Extension installed but not active
+1. Check status bar for 🛡️ shield icon
+2. Press `Ctrl+Shift+P` → Type "Code Guardrail: Show Menu"
+3. If command doesn't appear, see detailed troubleshooting below
 
-Make the script executable:
-```bash
-chmod +x ~/.guardrail/scripts/install.sh
-```
+#### No squiggles appearing on security issues
+1. Verify file is saved (not Untitled)
+2. Check file extension is supported (.ts, .js, .py, etc.)
+3. Click shield icon → "Reload Rules"
+4. Try "Test with Sample Code" from shield menu
 
-### Port 3000 already in use
+---
 
-Stop the process using port 3000:
+## 📚 Detailed Troubleshooting
 
-**Windows:**
-```powershell
-Get-NetTCPConnection -LocalPort 3000 | Select-Object -ExpandProperty OwningProcess | Stop-Process -Force
-```
+For comprehensive troubleshooting steps, see:
+**[TROUBLESHOOTING.md](./TROUBLESHOOTING.md)**
 
-**macOS/Linux:**
-```bash
-lsof -ti:3000 | xargs kill -9
-```
-
-Or change the port in `.env`:
-```bash
-SERVICE_PORT=3001
-```
-
-### Service not starting
-
-Check logs:
-- **Windows:** `%LOCALAPPDATA%\Guardrail\service\logs`
-- **macOS/Linux:** `~/.guardrail/service/logs`
-
-### Extension not working
-
-1. Check if service is running: `http://localhost:3000/health`
-2. Check VS Code settings: `codeGuardrail.serviceUrl`
-3. Reload VS Code: `Ctrl+Shift+P` → "Reload Window"
+Covers:
+- Extension activation issues
+- Version mismatch problems
+- File type support
+- Conflicting extensions
+- Developer console debugging
+- Clean reinstall procedures
 
 ---
 
