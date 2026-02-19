@@ -2,6 +2,8 @@
 
 ## One-Line Installation
 
+> 💡 **New Feature:** The installer automatically downloads and installs Node.js and VS Code if they're not already present on your system!
+
 ### Windows (PowerShell)
 
 ```powershell
@@ -12,6 +14,12 @@ iwr -useb https://raw.githubusercontent.com/AkashAi7/Guardrail/main/install.ps1 
 ```powershell
 Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; iex ((New-Object System.Net.WebClient).DownloadString('https://raw.githubusercontent.com/AkashAi7/Guardrail/main/install.ps1'))
 ```
+
+**What happens:**
+- ✅ Checks for Node.js (auto-installs if missing)
+- ✅ Checks for VS Code (auto-installs if missing)
+- ✅ Downloads and installs Guardrail
+- ⏱️ Takes 3-8 minutes depending on prerequisites
 
 ---
 
@@ -25,6 +33,14 @@ curl -fsSL https://raw.githubusercontent.com/AkashAi7/Guardrail/main/scripts/ins
 ```bash
 wget -qO- https://raw.githubusercontent.com/AkashAi7/Guardrail/main/scripts/install.sh | bash
 ```
+
+**What happens:**
+- ✅ Detects your package manager (apt/yum/brew)
+- ✅ Auto-installs Node.js if missing
+- ✅ Auto-installs VS Code if missing  
+- ✅ Downloads and installs Guardrail
+- ⏱️ Takes 3-10 minutes depending on prerequisites
+- 🔐 May prompt for sudo password
 
 ---
 

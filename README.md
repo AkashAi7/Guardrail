@@ -26,7 +26,9 @@ iwr https://raw.githubusercontent.com/AkashAi7/Guardrail/main/install.ps1 -UseBa
 curl -fsSL https://raw.githubusercontent.com/AkashAi7/Guardrail/main/install.sh | bash
 ```
 
-**⏱️ Takes 2-3 minutes** | **📦 ~100MB download** | **🔄 Auto-installs everything**
+**⏱️ Takes 2-3 minutes** | **📦 ~100MB download** | **🔄 Auto-installs prerequisites** | **✅ No setup needed**
+
+> 💡 **Missing Node.js or VS Code?** No problem! The installer automatically downloads and installs them for you.
 
 **[📖 Alternative Installation Methods](#-quick-start---one-command-installation)**
 

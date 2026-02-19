@@ -28,21 +28,85 @@ Write-Host ""
 Write-Host "🔍 Checking prerequisites..." -ForegroundColor Cyan
 
 # Check Node.js
+$nodeInstalled = $false
 try {
     $nodeVersion = node --version
     Write-Host "✅ Node.js: $nodeVersion" -ForegroundColor Green
+    $nodeInstalled = $true
 } catch {
-    Write-Host "❌ Node.js not found. Please install Node.js 18+ from https://nodejs.org/" -ForegroundColor Red
-    exit 1
+    Write-Host "⚠️ Node.js not found" -ForegroundColor Yellow
+    Write-Host "📥 Downloading Node.js installer..." -ForegroundColor Cyan
+    
+    # Determine architecture
+    $arch = if ([Environment]::Is64BitOperatingSystem) { "x64" } else { "x86" }
+    $nodeVersion = "20.11.1"  # LTS version
+    $nodeInstallerUrl = "https://nodejs.org/dist/v$nodeVersion/node-v$nodeVersion-$arch.msi"
+    $nodeInstaller = "$env:TEMP\node-installer.msi"
+    
+    try {
+        Invoke-WebRequest -Uri $nodeInstallerUrl -OutFile $nodeInstaller -UseBasicParsing
+        Write-Host "✅ Downloaded Node.js installer" -ForegroundColor Green
+        
+        Write-Host "🔧 Installing Node.js (this may take a few minutes)..." -ForegroundColor Cyan
+        Start-Process msiexec.exe -ArgumentList "/i", $nodeInstaller, "/quiet", "/norestart" -Wait
+        
+        # Refresh PATH
+        $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
+        
+        # Verify installation
+        Start-Sleep -Seconds 3
+        $nodeVersion = node --version
+        Write-Host "✅ Node.js installed: $nodeVersion" -ForegroundColor Green
+        Remove-Item $nodeInstaller -Force
+        $nodeInstalled = $true
+    } catch {
+        Write-Host "❌ Failed to install Node.js automatically" -ForegroundColor Red
+        Write-Host "   Please install manually from: https://nodejs.org/" -ForegroundColor Yellow
+        exit 1
+    }
 }
 
 # Check VS Code
+$vscodeInstalled = $false
 try {
     $codeVersion = code --version | Select-Object -First 1
     Write-Host "✅ VS Code: $codeVersion" -ForegroundColor Green
+    $vscodeInstalled = $true
 } catch {
-    Write-Host "❌ VS Code not found. Please install from https://code.visualstudio.com/" -ForegroundColor Red
-    exit 1
+    Write-Host "⚠️ VS Code not found" -ForegroundColor Yellow
+    Write-Host "📥 Downloading VS Code installer..." -ForegroundColor Cyan
+    
+    $vscodeInstallerUrl = "https://code.visualstudio.com/sha/download?build=stable&os=win32-x64-user"
+    $vscodeInstaller = "$env:TEMP\vscode-installer.exe"
+    
+    try {
+        # Download VS Code
+        Invoke-WebRequest -Uri $vscodeInstallerUrl -OutFile $vscodeInstaller -UseBasicParsing
+        Write-Host "✅ Downloaded VS Code installer" -ForegroundColor Green
+        
+        Write-Host "🔧 Installing VS Code (this may take a few minutes)..." -ForegroundColor Cyan
+        # Install silently with PATH addition
+        Start-Process -FilePath $vscodeInstaller -ArgumentList "/VERYSILENT", "/MERGETASKS=!runcode,addcontextmenufiles,addtopath" -Wait
+        
+        # Refresh PATH
+        $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
+        
+        # Verify installation
+        Start-Sleep -Seconds 3
+        $codeVersion = code --version | Select-Object -First 1
+        Write-Host "✅ VS Code installed: $codeVersion" -ForegroundColor Green
+        Remove-Item $vscodeInstaller -Force
+        $vscodeInstalled = $true
+    } catch {
+        Write-Host "❌ Failed to install VS Code automatically" -ForegroundColor Red
+        Write-Host "   Please install manually from: https://code.visualstudio.com/" -ForegroundColor Yellow
+        exit 1
+    }
+}
+
+if ($nodeInstalled -and $vscodeInstalled) {
+    Write-Host ""
+    Write-Host "✅ All prerequisites satisfied" -ForegroundColor Green
 }
 
 # ============================================

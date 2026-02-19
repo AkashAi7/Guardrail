@@ -4,10 +4,10 @@ Step-by-step guide to get Code Guardrail running in under 5 minutes.
 
 ## Prerequisites
 
-Before you begin, ensure you have:
+The following are required (the installer can auto-install them for you):
 
-- ✅ **Node.js 18+** - [Download here](https://nodejs.org/)
-- ✅ **VS Code 1.80+** - [Download here](https://code.visualstudio.com/)
+- ✅ **Node.js 18+** - **[Auto-installed if missing]** or [Download here](https://nodejs.org/)
+- ✅ **VS Code 1.80+** - **[Auto-installed if missing]** or [Download here](https://code.visualstudio.com/)
 - ✅ **GitHub Copilot CLI** - Required for LLM-powered analysis
   ```bash
   # Install Copilot CLI
@@ -24,7 +24,7 @@ Before you begin, ensure you have:
   - Or use BYOK with Azure OpenAI / OpenAI API key as alternative
 - ✅ **Git** - For cloning the repository
 
-**Note**: The service uses GitHub Copilot SDK which requires the Copilot CLI to be installed and authenticated. Without it, the service will fall back to pattern-based analysis (less accurate).
+> 💡 **Auto-Installation:** The one-line installer (see below) will automatically detect and install Node.js and VS Code if they're not present on your system.
 
 ## Installation
 

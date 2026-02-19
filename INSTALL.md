@@ -16,26 +16,29 @@ curl -fsSL https://raw.githubusercontent.com/AkashAi7/Guardrail/main/scripts/ins
 
 That's it! The installer will:
 - ✅ Check all prerequisites
+- ✅ **Auto-download and install missing prerequisites** (Node.js, VS Code)
 - ✅ Download and install the service
 - ✅ Build and install the VS Code extension
 - ✅ Auto-detect GitHub Copilot (or prompt for API keys)
 
-**Installation Time:** ~3-5 minutes
+**Installation Time:** ~3-5 minutes (longer if prerequisites need to be installed)
 
 ---
 
 ## 📋 Prerequisites
 
-Before installation, ensure you have:
+The following prerequisites are required. **Don't worry** - the automated installer will download and install them automatically if they're not already present:
 
 - **Operating System:** Windows 10+, macOS 10.15+, or Linux
-- **Node.js:** Version 18 or higher ([Download](https://nodejs.org/))
-- **VS Code:** Latest version ([Download](https://code.visualstudio.com/))
-- **Git:** For cloning the repository ([Download](https://git-scm.com/))
+- **Node.js:** Version 18 or higher - **[Auto-installed if missing]**
+- **VS Code:** Latest version - **[Auto-installed if missing]**
+- **Git:** For cloning the repository (manual install only) ([Download](https://git-scm.com/))
 
 **Optional (but recommended):**
 - **GitHub Copilot:** For free LLM usage (included in Copilot subscription)
   - OR **OpenAI API Key / Anthropic API Key:** For BYOK (Bring Your Own Key) mode
+
+> ℹ️ **Note:** The one-line installer will automatically detect and install Node.js and VS Code if they're not found on your system. You may need administrator permissions for automatic installation.
 
 ---
 
@@ -45,15 +48,21 @@ Before installation, ensure you have:
 
 #### Windows
 
-1. Open PowerShell (no admin required)
+1. Open PowerShell (may need admin rights for auto-installation)
 2. Run the installer:
    ```powershell
    iwr -useb https://raw.githubusercontent.com/AkashAi7/Guardrail/main/install.ps1 | iex
    ```
-3. Follow the prompts
+3. Follow the prompts (if Node.js or VS Code are missing, they will be downloaded and installed automatically)
 4. Restart VS Code
 
 **Default Install Location:** `%LOCALAPPDATA%\Guardrail`
+
+> 💡 **Automatic Installation:** If Node.js or VS Code are not found, the installer will:
+> - Download the latest LTS version of Node.js
+> - Download and install VS Code
+> - Configure your PATH automatically
+> - Continue with the Guardrail installation
 
 #### macOS / Linux
 
@@ -62,10 +71,15 @@ Before installation, ensure you have:
    ```bash
    curl -fsSL https://raw.githubusercontent.com/AkashAi7/Guardrail/main/scripts/install.sh | bash
    ```
-3. Follow the prompts
+3. Follow the prompts (if Node.js or VS Code are missing, they will be installed automatically)
 4. Restart VS Code
 
 **Default Install Location:** `~/.guardrail`
+
+> 💡 **Automatic Installation:** The installer will:
+> - **macOS:** Use Homebrew to install Node.js and VS Code (installs Homebrew if needed)
+> - **Linux:** Use your system's package manager (apt, yum, etc.) to install prerequisites
+> - May prompt for sudo password for system-wide installation
 
 ---
 
