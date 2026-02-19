@@ -2,6 +2,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { CustomRuleConfig } from './scanner';
 import { parseRulesFromMarkdown } from './ruleParser';
+import { parseNaturalLanguageRules, extractDocumentTitle } from './naturalLanguageParser';
 
 /**
  * Import rules from various file formats
@@ -55,11 +56,18 @@ async function loadPdfParse() {
 export function parseRulesFromText(content: string): CustomRuleConfig[] {
     // Try markdown format first
     if (content.includes('## ') || content.includes('- Severity:') || content.includes('- Pattern:')) {
-        return parseRulesFromMarkdown(content);
+        const rules = parseRulesFromMarkdown(content);
+        if (rules.length > 0) return rules;
     }
     
-    // Try simple text format
-    return parseSimpleTextFormat(content);
+    // Try simple structured text format
+    if (content.toLowerCase().includes('rule:') || content.toLowerCase().includes('pattern:')) {
+        const rules = parseSimpleTextFormat(content);
+        if (rules.length > 0) return rules;
+    }
+    
+    // Fallback: Use natural language parsing (no format required!)
+    return parseNaturalLanguageRules(content);
 }
 
 function parseSimpleTextFormat(content: string): CustomRuleConfig[] {
@@ -203,7 +211,7 @@ export async function importRulesFromFile(filePath: string): Promise<CustomRuleC
     const rules = parseRulesFromText(content);
     
     if (rules.length === 0) {
-        throw new Error('No valid rules found in the file. Make sure the file follows the expected format.');
+        throw new Error('No rules found. Try including keywords like: "don\'t hardcode passwords", "avoid console.log", "no API keys", etc.');
     }
     
     return rules;

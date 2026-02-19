@@ -1,8 +1,8 @@
 {
   "name": "code-guardrail",
   "displayName": "Code Guardrail",
-  "description": "Real-time security and compliance code scanner - detects secrets, SQL injection, XSS, and more",
-  "version": "0.3.0",
+  "description": "Security & compliance scanner - import rules from any document (PDF, Word, text) using natural language",
+  "version": "0.4.0",
   "publisher": "AkashAi7",
   "icon": "icon.png",
   "repository": {

@@ -40,6 +40,7 @@ exports.generateSampleTextRules = generateSampleTextRules;
 const fs = __importStar(require("fs"));
 const path = __importStar(require("path"));
 const ruleParser_1 = require("./ruleParser");
+const naturalLanguageParser_1 = require("./naturalLanguageParser");
 /**
  * Import rules from various file formats
  * Supported: .md, .txt, .pdf, .doc, .docx
@@ -90,10 +91,18 @@ async function loadPdfParse() {
 function parseRulesFromText(content) {
     // Try markdown format first
     if (content.includes('## ') || content.includes('- Severity:') || content.includes('- Pattern:')) {
-        return (0, ruleParser_1.parseRulesFromMarkdown)(content);
+        const rules = (0, ruleParser_1.parseRulesFromMarkdown)(content);
+        if (rules.length > 0)
+            return rules;
     }
-    // Try simple text format
-    return parseSimpleTextFormat(content);
+    // Try simple structured text format
+    if (content.toLowerCase().includes('rule:') || content.toLowerCase().includes('pattern:')) {
+        const rules = parseSimpleTextFormat(content);
+        if (rules.length > 0)
+            return rules;
+    }
+    // Fallback: Use natural language parsing (no format required!)
+    return (0, naturalLanguageParser_1.parseNaturalLanguageRules)(content);
 }
 function parseSimpleTextFormat(content) {
     const rules = [];
@@ -215,7 +224,7 @@ async function importRulesFromFile(filePath) {
     }
     const rules = parseRulesFromText(content);
     if (rules.length === 0) {
-        throw new Error('No valid rules found in the file. Make sure the file follows the expected format.');
+        throw new Error('No rules found. Try including keywords like: "don\'t hardcode passwords", "avoid console.log", "no API keys", etc.');
     }
     return rules;
 }
