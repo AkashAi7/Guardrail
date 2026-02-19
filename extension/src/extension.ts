@@ -3,6 +3,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { SecurityScanner, Finding, GuardrailConfig } from './scanner';
 import { parseRulesFromMarkdown, loadRulesFromFolder, generateSampleRulesMarkdown } from './ruleParser';
+import { importRulesFromFile, getSupportedExtensions, generateSampleTextRules } from './fileImporter';
 
 let diagnosticCollection: vscode.DiagnosticCollection;
 let scanner: SecurityScanner;
@@ -57,6 +58,87 @@ export function activate(context: vscode.ExtensionContext) {
     const initCmd = vscode.commands.registerCommand('codeGuardrail.initConfig', () => {
         createDefaultConfig();
     });
+
+    // Import rules from file (PDF, Word, MD, TXT)
+    const importCmd = vscode.commands.registerCommand('codeGuardrail.importRules', async () => {
+        const workspaceFolders = vscode.workspace.workspaceFolders;
+        if (!workspaceFolders) {
+            vscode.window.showWarningMessage('Open a workspace folder first');
+            return;
+        }
+
+        const filters: { [key: string]: string[] } = {
+            'All Supported': ['md', 'txt', 'pdf', 'docx', 'doc'],
+            'Markdown': ['md'],
+            'Text': ['txt'],
+            'PDF': ['pdf'],
+            'Word': ['docx', 'doc']
+        };
+
+        const fileUri = await vscode.window.showOpenDialog({
+            canSelectMany: false,
+            filters,
+            title: 'Select Rules File to Import'
+        });
+
+        if (!fileUri || fileUri.length === 0) {
+            return;
+        }
+
+        try {
+            vscode.window.withProgress({
+                location: vscode.ProgressLocation.Notification,
+                title: 'Importing rules...',
+                cancellable: false
+            }, async () => {
+                const rules = await importRulesFromFile(fileUri[0].fsPath);
+                
+                // Save to guardrail-rules.md in workspace
+                const outputPath = path.join(workspaceFolders[0].uri.fsPath, RULES_MD_FILE);
+                
+                // Convert to markdown format
+                let mdContent = `# Imported Rules\n\nImported from: ${path.basename(fileUri[0].fsPath)}\n\n`;
+                
+                for (const rule of rules) {
+                    mdContent += `## ${rule.name}\n`;
+                    mdContent += `- Severity: ${rule.severity}\n`;
+                    mdContent += `- Pattern: \`${rule.pattern}\`\n`;
+                    mdContent += `- Message: ${rule.message}\n`;
+                    mdContent += `- Category: ${rule.category}\n`;
+                    if (rule.languages) {
+                        mdContent += `- Languages: ${rule.languages.join(', ')}\n`;
+                    }
+                    mdContent += '\n';
+                }
+                
+                // Append or create
+                if (fs.existsSync(outputPath)) {
+                    const existing = fs.readFileSync(outputPath, 'utf8');
+                    fs.writeFileSync(outputPath, existing + '\n\n' + mdContent);
+                } else {
+                    fs.writeFileSync(outputPath, mdContent);
+                }
+                
+                // Reload rules
+                loadCustomRules();
+                
+                // Re-analyze open files
+                vscode.workspace.textDocuments.forEach(doc => {
+                    if (shouldAnalyze(doc)) {
+                        analyzeDocument(doc);
+                    }
+                });
+                
+                vscode.window.showInformationMessage(`Imported ${rules.length} rules from ${path.basename(fileUri[0].fsPath)}`);
+                
+                // Open the rules file
+                const doc = await vscode.workspace.openTextDocument(outputPath);
+                vscode.window.showTextDocument(doc);
+            });
+        } catch (error: any) {
+            vscode.window.showErrorMessage(`Failed to import rules: ${error.message}`);
+        }
+    });
     
     // Register on save handler
     const onSave = vscode.workspace.onDidSaveTextDocument((document) => {
@@ -96,6 +178,7 @@ export function activate(context: vscode.ExtensionContext) {
         clearCmd,
         reloadCmd,
         initCmd,
+        importCmd,
         onSave,
         onOpen
     );

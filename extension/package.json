@@ -2,7 +2,7 @@
   "name": "code-guardrail",
   "displayName": "Code Guardrail",
   "description": "Real-time security and compliance code scanner - detects secrets, SQL injection, XSS, and more",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "publisher": "AkashAi7",
   "icon": "icon.png",
   "repository": {
@@ -45,7 +45,11 @@
       },
       {
         "command": "codeGuardrail.initConfig",
-        "title": "Code Guardrail: Create Config File"
+        "title": "Code Guardrail: Create Sample Rules"
+      },
+      {
+        "command": "codeGuardrail.importRules",
+        "title": "Code Guardrail: Import Rules from File"
       }
     ]
   },
@@ -58,5 +62,9 @@
     "@types/node": "20.x",
     "@types/vscode": "^1.80.0",
     "typescript": "^5.1.6"
+  },
+  "dependencies": {
+    "mammoth": "^1.11.0",
+    "pdf-parse": "^2.4.5"
   }
 }

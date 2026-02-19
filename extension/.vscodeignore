@@ -11,7 +11,25 @@ tsconfig.json
 # Development files
 .vscode/**
 .vscode-test/**
+
+# Node modules - exclude most but keep production dependencies
 node_modules/**
+!node_modules/mammoth/**
+!node_modules/pdf-parse/**
+!node_modules/xmldom/**
+!node_modules/base64-js/**
+!node_modules/dingbat-to-unicode/**
+!node_modules/jszip/**
+!node_modules/lop/**
+!node_modules/option/**
+!node_modules/path-is-inside/**
+!node_modules/underscore/**
+!node_modules/immediate/**
+!node_modules/lie/**
+!node_modules/pako/**
+!node_modules/set-immediate-shim/**
+!node_modules/process/**
+!node_modules/node-ensure/**
 
 # Git
 .git/**
