@@ -115,7 +115,7 @@ npm run compile | Out-Null
 
 # Package extension
 Write-Host "  Packaging extension..."
-npx @vscode/vsce package --no-dependencies | Out-Null
+npx @vscode/vsce package --allow-package-secrets github | Out-Null
 
 # Copy VSIX to release directory
 $vsixFile = Get-ChildItem "*.vsix" | Select-Object -First 1
@@ -153,7 +153,7 @@ Compress-Archive -Path "$RELEASE_DIR\guardrail-service\*" `
 
 # Get file sizes
 $serviceZipSize = (Get-Item "$RELEASE_DIR\guardrail-service-v$Version.zip").Length / 1MB
-$extensionSize = (Get-Item "$RELEASE_DIR\code-guardrail-0.1.0.vsix").Length / 1KB
+$extensionSize = (Get-Item "$RELEASE_DIR\code-guardrail-$Version.vsix").Length / 1KB
 
 Write-Host "✅ Archives created" -ForegroundColor Green
 

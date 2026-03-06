@@ -45,6 +45,7 @@ app.post('/search', async (req, res) => {
 app.get('/profile/:username', (req, res) => {
     const username = req.params.username;
     const html = `
+    
         <html>
             <body>
                 <h1>Welcome ${username}</h1>

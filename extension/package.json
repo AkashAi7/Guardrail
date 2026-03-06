@@ -1,8 +1,8 @@
 {
   "name": "code-guardrail",
   "displayName": "Code Guardrail",
-  "description": "AI-powered security & compliance scanner - fully autonomous with auto-setup",
-  "version": "0.7.0",
+  "description": "AI-powered security & compliance scanner using GitHub Copilot SDK intelligence",
+  "version": "0.8.0",
   "publisher": "AkashAi7",
   "icon": "icon.png",
   "repository": {
@@ -76,6 +76,18 @@
       {
         "command": "codeGuardrail.showQuickPick",
         "title": "Code Guardrail: Show Menu"
+      },
+      {
+        "command": "codeGuardrail.uploadComplianceDocument",
+        "title": "Code Guardrail: Upload Compliance Document"
+      },
+      {
+        "command": "codeGuardrail.viewComplianceDocuments",
+        "title": "Code Guardrail: View Uploaded Compliance Documents"
+      },
+      {
+        "command": "codeGuardrail.clearComplianceDocuments",
+        "title": "Code Guardrail: Clear All Compliance Documents"
       }
     ]
   },

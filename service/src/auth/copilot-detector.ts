@@ -88,13 +88,11 @@ export class CopilotDetector {
 
   private async testAuthentication(): Promise<boolean> {
     try {
-      // Try to initialize Copilot client
+      // Try to create a session — this validates CLI + auth in one step
       const client = new CopilotClient();
-
-      // Start the client (this will fail if not authenticated)
-      await client.start();
-
-      // If we get here, authentication is valid
+      const session = await client.createSession({ model: 'gpt-4.1' });
+      
+      // If createSession succeeds, auth is valid
       await client.stop();
       return true;
 
@@ -102,7 +100,8 @@ export class CopilotDetector {
       // Check if error is authentication-related
       if (error.message?.includes('auth') || 
           error.message?.includes('token') ||
-          error.message?.includes('login')) {
+          error.message?.includes('login') ||
+          error.code === 'ENOENT') {
         return false;
       }
 

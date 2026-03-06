@@ -679,6 +679,178 @@ const apiKey = process.env.COMPANY_API_KEY;
             vscode.window.showErrorMessage(`Failed to import rules: ${error.message}`);
         }
     });
+    // Upload Compliance Document
+    const uploadComplianceDocumentCmd = vscode.commands.registerCommand('codeGuardrail.uploadComplianceDocument', async () => {
+        try {
+            // Step 1: Select compliance type
+            const complianceTypes = [
+                { label: 'GDPR', description: 'General Data Protection Regulation' },
+                { label: 'HIPAA', description: 'Health Insurance Portability and Accountability Act' },
+                { label: 'PCI-DSS', description: 'Payment Card Industry Data Security Standard' },
+                { label: 'SOC2', description: 'Service Organization Control 2' },
+                { label: 'ISO-27001', description: 'Information Security Management' },
+                { label: 'Custom', description: 'Custom compliance framework' }
+            ];
+            const selectedType = await vscode.window.showQuickPick(complianceTypes, {
+                placeHolder: 'Select compliance framework type',
+                title: 'Upload Compliance Document'
+            });
+            if (!selectedType) {
+                return;
+            }
+            // Step 2: Select document file
+            const filters = {
+                'All Supported': ['md', 'txt', 'pdf'],
+                'Markdown': ['md'],
+                'Text': ['txt'],
+                'PDF': ['pdf']
+            };
+            const fileUri = await vscode.window.showOpenDialog({
+                canSelectMany: false,
+                filters,
+                title: 'Select Compliance Document'
+            });
+            if (!fileUri || fileUri.length === 0) {
+                return;
+            }
+            const filePath = fileUri[0].fsPath;
+            const fileName = path.basename(filePath);
+            // Step 3: Enter document name (default to filename)
+            const documentName = await vscode.window.showInputBox({
+                prompt: 'Enter a name for this compliance document',
+                value: fileName.replace(/\.[^.]+$/, ''),
+                placeHolder: 'e.g., GDPR Article 32 Requirements'
+            });
+            if (!documentName) {
+                return;
+            }
+            // Step 4: Read file content
+            await vscode.window.withProgress({
+                location: vscode.ProgressLocation.Notification,
+                title: `Uploading ${documentName}...`,
+                cancellable: false
+            }, async () => {
+                if (!serviceManager || !serviceManager.isRunning()) {
+                    throw new Error('AI service is not running');
+                }
+                const fileContent = fs.readFileSync(filePath);
+                // Upload to service
+                const response = await serviceManager.makeRequest('/upload-compliance', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/octet-stream'
+                    },
+                    body: fileContent,
+                    queryParams: {
+                        documentName: documentName,
+                        type: selectedType.label
+                    }
+                });
+                if (response.success) {
+                    vscode.window.showInformationMessage(`✅ Uploaded compliance document: ${documentName} (${selectedType.label})`);
+                    // Re-analyze open files with new compliance context
+                    vscode.workspace.textDocuments.forEach(doc => {
+                        if (shouldAnalyze(doc)) {
+                            analyzeDocument(doc);
+                        }
+                    });
+                }
+                else {
+                    throw new Error(response.error || 'Upload failed');
+                }
+            });
+        }
+        catch (error) {
+            vscode.window.showErrorMessage(`Failed to upload compliance document: ${error.message}`);
+        }
+    });
+    // View Uploaded Compliance Documents
+    const viewComplianceDocumentsCmd = vscode.commands.registerCommand('codeGuardrail.viewComplianceDocuments', async () => {
+        try {
+            if (!serviceManager || !serviceManager.isRunning()) {
+                vscode.window.showErrorMessage('AI service is not running. Please start the service first.');
+                return;
+            }
+            const response = await serviceManager.makeRequest('/compliance-documents', {
+                method: 'GET'
+            });
+            if (!response.success || !response.documents) {
+                vscode.window.showWarningMessage('No compliance documents uploaded');
+                return;
+            }
+            const documents = response.documents;
+            if (documents.length === 0) {
+                vscode.window.showInformationMessage('No compliance documents uploaded. Use "Upload Compliance Document" to add one.');
+                return;
+            }
+            const items = documents.map(doc => ({
+                label: `$(file) ${doc.documentName}`,
+                description: doc.type,
+                detail: `Type: ${doc.type}`,
+                document: doc
+            }));
+            const selected = await vscode.window.showQuickPick(items, {
+                placeHolder: `${documents.length} compliance document(s) uploaded`,
+                title: 'Uploaded Compliance Documents'
+            });
+            if (selected) {
+                vscode.window.showInformationMessage(`Document: ${selected.document.documentName} (${selected.document.type})`);
+            }
+        }
+        catch (error) {
+            vscode.window.showErrorMessage(`Failed to list compliance documents: ${error.message}`);
+        }
+    });
+    // Clear All Compliance Documents
+    const clearComplianceDocumentsCmd = vscode.commands.registerCommand('codeGuardrail.clearComplianceDocuments', async () => {
+        try {
+            if (!serviceManager || !serviceManager.isRunning()) {
+                vscode.window.showErrorMessage('AI service is not running. Please start the service first.');
+                return;
+            }
+            // First check if any documents exist
+            const listResponse = await serviceManager.makeRequest('/compliance-documents', {
+                method: 'GET'
+            });
+            const documents = listResponse.documents || [];
+            if (documents.length === 0) {
+                vscode.window.showInformationMessage('No compliance documents to clear');
+                return;
+            }
+            // Confirm deletion
+            const confirmation = await vscode.window.showWarningMessage(`Clear all ${documents.length} compliance document(s)? This will remove the compliance context from analysis.`, { modal: true }, 'Clear All');
+            if (confirmation !== 'Clear All') {
+                return;
+            }
+            await vscode.window.withProgress({
+                location: vscode.ProgressLocation.Notification,
+                title: 'Clearing compliance documents...',
+                cancellable: false
+            }, async () => {
+                if (!serviceManager || !serviceManager.isRunning()) {
+                    throw new Error('AI service is not running');
+                }
+                const response = await serviceManager.makeRequest('/compliance-documents', {
+                    method: 'DELETE'
+                });
+                if (response.success) {
+                    vscode.window.showInformationMessage('✅ All compliance documents cleared');
+                    // Re-analyze open files without compliance context
+                    vscode.workspace.textDocuments.forEach(doc => {
+                        if (shouldAnalyze(doc)) {
+                            analyzeDocument(doc);
+                        }
+                    });
+                }
+                else {
+                    throw new Error(response.error || 'Clear failed');
+                }
+            });
+        }
+        catch (error) {
+            vscode.window.showErrorMessage(`Failed to clear compliance documents: ${error.message}`);
+        }
+    });
     // Register on save handler
     const onSave = vscode.workspace.onDidSaveTextDocument((document) => {
         // Reload rules if config/rules file is saved
@@ -704,7 +876,7 @@ const apiKey = process.env.COMPANY_API_KEY;
     if (vscode.window.activeTextEditor) {
         analyzeDocument(vscode.window.activeTextEditor.document);
     }
-    context.subscriptions.push(diagnosticCollection, statusBarItem, analyzeCmd, scanProjectCmd, clearCmd, showQuickPickCmd, showIssuesPanelCmd, reloadCmd, initCmd, importCmd, importUrlCmd, createRuleCmd, setupOrgCmd, manageRulesCmd, onSave, onOpen);
+    context.subscriptions.push(diagnosticCollection, statusBarItem, analyzeCmd, scanProjectCmd, clearCmd, showQuickPickCmd, showIssuesPanelCmd, reloadCmd, initCmd, importCmd, importUrlCmd, createRuleCmd, setupOrgCmd, manageRulesCmd, uploadComplianceDocumentCmd, viewComplianceDocumentsCmd, clearComplianceDocumentsCmd, onSave, onOpen);
     // Show welcome message with clear next steps
     const builtInRuleCount = scanner.getBuiltInRuleIds().length;
     const message = `Code Guardrail is ready! ${builtInRuleCount} built-in security rules active. No setup required - just start coding!`;
@@ -819,11 +991,15 @@ async function analyzeDocument(document) {
         return;
     }
     try {
-        const response = await serviceManager.makeRequest('/analyze', 'POST', {
-            content: text,
-            filePath: document.fileName,
-            language: document.languageId
-        }, 30000); // 30 second timeout for AI analysis
+        const response = await serviceManager.makeRequest('/analyze', {
+            method: 'POST',
+            body: {
+                content: text,
+                filePath: document.fileName,
+                language: document.languageId
+            },
+            timeout: 30000 // 30 second timeout for AI analysis
+        });
         // Convert backend response to Finding format
         if (response.success && response.result && response.result.findings) {
             findings = response.result.findings.map((finding) => {

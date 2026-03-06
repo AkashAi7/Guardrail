@@ -22,6 +22,10 @@ export interface Finding {
   suggestedFix: string;
   autoFixable: boolean;
   references?: Reference[];
+  // Enhanced compliance fields
+  complianceReference?: string; // Specific document section violated
+  riskLevel?: string; // Business impact of the violation
+  complianceImpact?: string[]; // List of compliance frameworks affected (GDPR, HIPAA, etc)
 }
 
 export interface Reference {

@@ -1,7 +1,12 @@
 import * as dotenv from 'dotenv';
 import * as path from 'path';
+import { fileURLToPath } from 'url';
 import { ServiceConfig } from './types/index.js';
 import type { ProviderConfig } from './providers/base-provider.js';
+
+// ES module __dirname equivalent
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Load environment variables
 dotenv.config();
@@ -26,8 +31,8 @@ const getBYOKProvider = (): 'openai' | 'anthropic' | 'azure-openai' => {
 export const providerConfig: ProviderConfig = {
   mode: getProviderMode(),
   copilot: {
-    model: process.env.COPILOT_MODEL || 'gpt-4',
-    timeout: parseInt(process.env.ANALYSIS_TIMEOUT_MS || '60000', 10) // Increased to 60s for Copilot response
+    model: process.env.COPILOT_MODEL || 'gpt-4.1',
+    timeout: parseInt(process.env.ANALYSIS_TIMEOUT_MS || '120000', 10) // 120s (2 min) for Copilot response
   },
   byok: {
     provider: getBYOKProvider(),

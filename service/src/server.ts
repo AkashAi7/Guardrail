@@ -52,7 +52,10 @@ export class GuardrailServer {
           'GET /provider': 'Current LLM provider information',
           'POST /analyze': 'Analyze a single file',
           'POST /analyze-batch': 'Analyze multiple files',
-          'POST /reload-governance': 'Reload governance rules'
+          'POST /reload-governance': 'Reload governance rules',
+          'POST /upload-compliance': 'Upload compliance document (query params: documentName, type)',
+          'GET /compliance-documents': 'List uploaded compliance documents',
+          'DELETE /compliance-documents': 'Clear all uploaded documents'
         },
         examples: {
           analyze: {
@@ -62,6 +65,13 @@ export class GuardrailServer {
               content: 'const apiKey = "hardcoded-secret";',
               language: 'typescript'
             }
+          },
+          uploadCompliance: {
+            url: 'POST http://localhost:3000/upload-compliance?documentName=GDPR%20Article%2025&type=gdpr',
+            headers: {
+              'Content-Type': 'text/plain'
+            },
+            body: 'Your compliance document text here...'
           }
         },
         documentation: 'https://github.com/AkashAi7/Guardrail',
@@ -193,6 +203,80 @@ export class GuardrailServer {
       }
     });
 
+    // Upload compliance document endpoint
+    this.app.post('/upload-compliance', express.raw({ type: '*/*', limit: '10mb' }), async (req: Request, res: Response) => {
+      try {
+        const documentName = req.query.documentName as string;
+        const type = req.query.type as 'gdpr' | 'hipaa' | 'pci-dss' | 'soc2' | 'custom';
+        
+        if (!documentName || !type) {
+          return res.status(400).json({ 
+            error: 'Missing documentName or type query parameters',
+            example: '/upload-compliance?documentName=MyDoc&type=gdpr'
+          });
+        }
+
+        // Get content from request body
+        const content = req.body.toString('utf-8');
+        
+        if (!content || content.length === 0) {
+          return res.status(400).json({ error: 'Empty document content' });
+        }
+
+        // Upload to agent
+        await this.agent.uploadComplianceDocument(documentName, content, type);
+
+        res.json({
+          success: true,
+          message: `Document ${documentName} uploaded successfully`,
+          documentSize: content.length,
+        });
+
+      } catch (error: any) {
+        console.error('Upload failed:', error);
+        res.status(500).json({ 
+          success: false,
+          error: 'Failed to upload document',
+          details: error.message 
+        });
+      }
+    });
+
+    // Get list of uploaded documents
+    this.app.get('/compliance-documents', (req: Request, res: Response) => {
+      try {
+        const documents = this.agent.getUploadedDocuments();
+        res.json({ 
+          success: true,
+          documents,
+          count: documents.length 
+        });
+      } catch (error: any) {
+        console.error('Failed to get documents:', error);
+        res.status(500).json({ 
+          success: false,
+          error: 'Failed to retrieve documents' 
+        });
+      }
+    });
+
+    // Clear all compliance documents
+    this.app.delete('/compliance-documents', (req: Request, res: Response) => {
+      try {
+        this.agent.clearComplianceContext();
+        res.json({ 
+          success: true, 
+          message: 'All compliance documents cleared' 
+        });
+      } catch (error: any) {
+        console.error('Failed to clear documents:', error);
+        res.status(500).json({ 
+          success: false,
+          error: 'Failed to clear documents' 
+        });
+      }
+    });
+
     // 404 handler
     this.app.use((req, res) => {
       res.status(404).json({
@@ -224,6 +308,9 @@ export class GuardrailServer {
         console.log(`   POST /analyze             - Analyze single file`);
         console.log(`   POST /analyze-batch       - Analyze multiple files`);
         console.log(`   POST /reload-governance   - Reload governance rules`);
+        console.log(`   POST /upload-compliance   - Upload compliance document`);
+        console.log(`   GET  /compliance-documents - List uploaded documents`);
+        console.log(`   DELETE /compliance-documents - Clear all documents`);
         console.log('\n' + '='.repeat(60) + '\n');
       });
 

@@ -62,7 +62,10 @@ export class ServiceManager {
      */
     async checkServiceHealth(): Promise<boolean> {
         try {
-            const response = await this.makeRequest('/health', 'GET', null, 2000);
+            const response = await this.makeRequest('/health', {
+                method: 'GET',
+                timeout: 2000
+            });
             return response.status === 'ok';
         } catch {
             return false;
@@ -86,26 +89,59 @@ export class ServiceManager {
     /**
      * Make a request to the backend service
      */
-    async makeRequest(endpoint: string, method: 'GET' | 'POST' = 'GET', body: any = null, timeout: number = 30000): Promise<any> {
-        const url = `${this.serviceHost}${endpoint}`;
+    async makeRequest(endpoint: string, options?: {
+        method?: 'GET' | 'POST' | 'DELETE';
+        headers?: Record<string, string>;
+        body?: any;
+        queryParams?: Record<string, string>;
+        timeout?: number;
+    }): Promise<any> {
+        const {
+            method = 'GET',
+            headers = {},
+            body = null,
+            queryParams = {},
+            timeout = 30000
+        } = options || {};
+
+        // Build URL with query parameters
+        let url = `${this.serviceHost}${endpoint}`;
+        const queryString = Object.entries(queryParams)
+            .map(([key, value]) => `${encodeURIComponent(key)}=${encodeURIComponent(value)}`)
+            .join('&');
+        if (queryString) {
+            url += `?${queryString}`;
+        }
         
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), timeout);
 
         try {
-            const options: RequestInit = {
+            const fetchOptions: RequestInit = {
                 method,
                 headers: {
-                    'Content-Type': 'application/json',
+                    ...headers
                 },
                 signal: controller.signal
             };
 
-            if (body) {
-                options.body = JSON.stringify(body);
+            // Handle body - support both JSON and raw Buffer
+            if (body !== null) {
+                if (Buffer.isBuffer(body) || body instanceof Uint8Array) {
+                    // Raw body (e.g., file upload)
+                    fetchOptions.body = body;
+                } else if (typeof body === 'object') {
+                    // JSON body (default behavior)
+                    if (!fetchOptions.headers) fetchOptions.headers = {};
+                    (fetchOptions.headers as Record<string, string>)['Content-Type'] = 'application/json';
+                    fetchOptions.body = JSON.stringify(body);
+                } else {
+                    // String or other primitive
+                    fetchOptions.body = body;
+                }
             }
 
-            const response = await fetch(url, options);
+            const response = await fetch(url, fetchOptions);
             clearTimeout(timeoutId);
 
             if (!response.ok) {
@@ -126,29 +162,30 @@ export class ServiceManager {
      * Find the service directory
      */
     private async getServicePath(): Promise<string | null> {
-        // Try multiple possible locations
-        const possiblePaths = [
-            // Development: ../service from extension folder
-            path.join(this.context.extensionPath, '..', 'service'),
-            // Bundled: service folder inside extension
-            path.join(this.context.extensionPath, 'service'),
-            // User's home directory (auto-extracted)
-            path.join(require('os').homedir(), '.guardrail-service')
-        ];
-
-        for (const servicePath of possiblePaths) {
-            const indexPath = path.join(servicePath, 'dist', 'index.js');
-            if (fs.existsSync(indexPath)) {
-                console.log(`✅ Found service at: ${servicePath}`);
-                return servicePath;
-            }
+        const homeServicePath = path.join(require('os').homedir(), '.guardrail-service');
+        const devServicePath = path.join(this.context.extensionPath, '..', 'service');
+        
+        // Priority 1: Check extracted service in home directory (has express installed)
+        const homeIndexPath = path.join(homeServicePath, 'dist', 'index.js');
+        const homeExpressPath = path.join(homeServicePath, 'node_modules', 'express');
+        if (fs.existsSync(homeIndexPath) && fs.existsSync(homeExpressPath)) {
+            console.log(`✅ Found installed service at: ${homeServicePath}`);
+            return homeServicePath;
         }
 
-        // If not found, try to extract bundled service
-        console.log('⚙️ Service not found, checking for bundled service...');
+        // Priority 2: Development mode - service folder next to extension (has express installed)
+        const devIndexPath = path.join(devServicePath, 'dist', 'index.js');
+        const devExpressPath = path.join(devServicePath, 'node_modules', 'express');
+        if (fs.existsSync(devIndexPath) && fs.existsSync(devExpressPath)) {
+            console.log(`✅ Found dev service at: ${devServicePath}`);
+            return devServicePath;
+        }
+
+        // Priority 3: Extract bundled service to home directory and install deps
+        console.log('⚙️ Service not found with dependencies, extracting bundled service...');
         const extracted = await this.extractBundledService();
         if (extracted) {
-            return path.join(require('os').homedir(), '.guardrail-service');
+            return homeServicePath;
         }
 
         console.warn('⚠️ Service not found in any expected location');
@@ -218,37 +255,51 @@ export class ServiceManager {
      */
     private async installServiceDependencies(servicePath: string): Promise<boolean> {
         return new Promise((resolve) => {
-            const npmCmd = process.platform === 'win32' ? 'npm.cmd' : 'npm';
+            console.log(`📦 Running npm install in: ${servicePath}`);
             
-            const installProcess = spawn(npmCmd, ['install', '--production', '--silent'], {
+            // Use 'npm' and shell:true to ensure npm is found via PATH
+            const installProcess = spawn('npm', ['install', '--production'], {
                 cwd: servicePath,
-                stdio: ['ignore', 'pipe', 'pipe']
+                stdio: ['ignore', 'pipe', 'pipe'],
+                shell: true // Required on Windows to find npm in PATH
             });
 
             let output = '';
             installProcess.stdout?.on('data', (data) => {
-                output += data.toString();
+                const text = data.toString();
+                output += text;
+                console.log(`[npm] ${text.trim()}`);
             });
 
             installProcess.stderr?.on('data', (data) => {
-                output += data.toString();
+                const text = data.toString();
+                output += text;
+                console.log(`[npm stderr] ${text.trim()}`);
+            });
+
+            installProcess.on('error', (err) => {
+                console.error(`❌ npm spawn error: ${err.message}`);
+                vscode.window.showErrorMessage(`Failed to run npm install: ${err.message}`);
+                resolve(false);
             });
 
             installProcess.on('close', (code) => {
                 if (code === 0) {
-                    console.log('✅ npm install completed');
+                    console.log('✅ npm install completed successfully');
                     resolve(true);
                 } else {
-                    console.error('❌ npm install failed:', output);
+                    console.error(`❌ npm install failed with code ${code}:`, output);
+                    vscode.window.showErrorMessage(`npm install failed. Try manually: cd ~/.guardrail-service && npm install`);
                     resolve(false);
                 }
             });
 
-            // Timeout after 2 minutes
+            // Timeout after 3 minutes (npm can be slow)
             setTimeout(() => {
+                console.error('❌ npm install timeout');
                 installProcess.kill();
                 resolve(false);
-            }, 120000);
+            }, 180000);
         });
     }
 
@@ -267,18 +318,32 @@ export class ServiceManager {
             console.log('🚀 Starting Guardrail service...');
             
             const indexPath = path.join(servicePath, 'dist', 'index.js');
-            const nodeExecutable = process.execPath; // Use same Node.js as VS Code
+            console.log(`Service index path: ${indexPath}`);
+            console.log(`Service path exists: ${fs.existsSync(indexPath)}`);
+            
+            // Use system Node.js (not VS Code's bundled one) - required for Node.js 22+ features
+            // Use 'node' without extension - shell will resolve it on both platforms
+            const nodeExecutable = 'node';
+            console.log(`Using node executable: ${nodeExecutable}`);
             
             // Start the service
             this.serviceProcess = spawn(nodeExecutable, [indexPath], {
                 cwd: servicePath,
                 stdio: ['ignore', 'pipe', 'pipe'],
                 detached: false, // Keep as child process
+                shell: true, // Use shell to find system node
                 env: {
                     ...process.env,
                     NODE_ENV: 'production',
                     PORT: this.servicePort.toString()
                 }
+            });
+
+            // Handle spawn errors (e.g., node not found)
+            this.serviceProcess.on('error', (err) => {
+                console.error(`❌ Failed to spawn service process: ${err.message}`);
+                vscode.window.showErrorMessage(`Failed to start service: ${err.message}. Is Node.js installed?`);
+                resolve(false);
             });
 
             // Handle stdout
@@ -294,14 +359,16 @@ export class ServiceManager {
                 }
             });
 
-            // Handle stderr
+            // Handle stderr - capture all errors
             this.serviceProcess.stderr?.on('data', (data) => {
-                const error = data.toString();
-                console.error(`[Service Error] ${error}`);
+                const error = data.toString().trim();
+                console.error(`[Service stderr] ${error}`);
                 
-                // Don't show all errors - some are just warnings
-                if (error.includes('ERROR') || error.includes('FATAL')) {
-                    console.error('Service error:', error);
+                // Check for critical Node.js errors
+                if (error.includes('ERR_UNKNOWN_BUILTIN_MODULE') || 
+                    error.includes('node:sqlite') ||
+                    error.includes('Cannot find module')) {
+                    vscode.window.showErrorMessage(`Guardrail requires Node.js 22.5.0+. Current Node.js may be outdated.`);
                 }
             });
 
@@ -315,15 +382,8 @@ export class ServiceManager {
                     vscode.window.showWarningMessage(
                         'Guardrail service stopped unexpectedly. Falling back to local scanning.'
                     );
+                    resolve(false);
                 }
-            });
-
-            // Handle errors
-            this.serviceProcess.on('error', (error) => {
-                console.error('Failed to start service:', error);
-                this.isServiceRunning = false;
-                this.serviceProcess = null;
-                resolve(false);
             });
 
             // Timeout check - if service doesn't start in 10 seconds, assume failure

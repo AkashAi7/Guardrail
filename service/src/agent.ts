@@ -14,6 +14,8 @@ export class GuardrailAgent {
   private governanceLoader: GovernanceLoader;
   private copilotClient: CopilotClient;
   private isInitialized: boolean = false;
+  private complianceContext: Map<string, string> = new Map(); // Store uploaded compliance docs
+  private baseSystemPrompt: string = ''; // Store original prompt before enhancements
 
   constructor(governancePath: string) {
     this.governanceLoader = new GovernanceLoader(governancePath);
@@ -37,7 +39,8 @@ export class GuardrailAgent {
     
     // Load governance prompts
     await this.governanceLoader.loadAll();
-    this.systemPrompt = this.governanceLoader.getSystemPrompt();
+    this.baseSystemPrompt = this.governanceLoader.getSystemPrompt();
+    this.systemPrompt = this.baseSystemPrompt;
     
     // Start Copilot CLI server
     try {
@@ -160,7 +163,7 @@ export class GuardrailAgent {
    * Build analysis prompt for the LLM
    */
   private buildAnalysisPrompt(request: AnalysisRequest): string {
-    let prompt = 'Please analyze the following code for security, compliance, and best practice issues:\n\n';
+    let prompt = '# CODE ANALYSIS REQUEST\n\n';
     
     prompt += `**File:** ${request.filePath}\n`;
     prompt += `**Language:** ${request.language}\n`;
@@ -176,16 +179,39 @@ export class GuardrailAgent {
       prompt += `**Changed Lines:** ${lineRanges}\n`;
     }
     
-    prompt += '\n**Code:**\n';
+    // Add compliance context hints if documents are uploaded
+    if (this.complianceContext.size > 0) {
+      prompt += '\n**Available Compliance Contexts:** ';
+      prompt += Array.from(this.complianceContext.keys())
+        .map(key => key.split(':')[0])
+        .join(', ');
+      prompt += '\n';
+    }
+    
+    prompt += '\n**Your Task:**\n';
+    if (this.complianceContext.size > 0) {
+      prompt += '1. Analyze the code against ALL uploaded compliance documents\n';
+      prompt += '2. Identify violations by citing specific document sections\n';
+      prompt += '3. Provide line-level precision for each issue\n';
+      prompt += '4. Suggest compliant alternatives with examples\n';
+    } else {
+      prompt += '1. Focus on REAL issues with security/compliance impact\n';
+      prompt += '2. Be specific about line numbers and code snippets\n';
+      prompt += '3. Provide working fixes, not just descriptions\n';
+      prompt += '4. Return response in strict JSON format as specified in system prompt\n';
+    }
+    
+    prompt += '\n**Code to Analyze:**\n';
     prompt += '```' + request.language + '\n';
     prompt += request.content;
     prompt += '\n```\n\n';
     
-    prompt += '**Instructions:**\n';
-    prompt += '1. Focus on REAL issues with security/compliance impact\n';
-    prompt += '2. Be specific about line numbers and code snippets\n';
-    prompt += '3. Provide working fixes, not just descriptions\n';
-    prompt += '4. Return response in strict JSON format as specified in system prompt\n';
+    if (this.complianceContext.size > 0) {
+      prompt += '**Output Format:** JSON with findings array. Each finding MUST include:\n';
+      prompt += '- `complianceReference`: Specific document section violated\n';
+      prompt += '- `riskLevel`: Business impact of the violation\n';
+      prompt += '- `suggestedFix`: Working code that achieves compliance\n\n';
+    }
     
     return prompt;
   }
@@ -214,10 +240,31 @@ export class GuardrailAgent {
         throw new Error('Invalid response structure: missing findings array');
       }
       
+      // Enhance findings with compliance metadata
+      const findings: Finding[] = parsed.findings.map((finding: any) => ({
+        id: finding.id || 'UNKNOWN',
+        severity: finding.severity || 'MEDIUM',
+        category: finding.category || 'Compliance',
+        title: finding.title || 'Compliance Issue',
+        description: finding.description || '',
+        line: finding.line || 1,
+        column: finding.column || 1,
+        snippet: finding.snippet || '',
+        explanation: finding.explanation || '',
+        suggestedFix: finding.suggestedFix || '',
+        autoFixable: finding.autoFixable || false,
+        complianceRefs: finding.complianceRefs || [],
+        references: finding.references || [],
+        // Enhanced compliance fields
+        complianceReference: finding.complianceReference || 'General compliance',
+        riskLevel: finding.riskLevel || 'Medium',
+        complianceImpact: finding.complianceImpact || [],
+      }));
+      
       return {
         filePath: '',
-        findings: parsed.findings,
-        summary: parsed.summary || this.calculateSummary(parsed.findings),
+        findings,
+        summary: parsed.summary || this.calculateSummary(findings),
         analysisTime: 0,
       };
     } catch (error) {
@@ -344,12 +391,77 @@ export class GuardrailAgent {
   }
 
   /**
+   * Upload compliance document for contextual analysis
+   * This adds the document to the agent's knowledge base
+   */
+  async uploadComplianceDocument(
+    documentName: string,
+    content: string,
+    type: 'gdpr' | 'hipaa' | 'pci-dss' | 'soc2' | 'custom'
+  ): Promise<void> {
+    console.log(`📄 Uploading compliance document: ${documentName} (${type})`);
+    
+    // Store document in context map
+    this.complianceContext.set(`${type}:${documentName}`, content);
+    
+    // Update system prompt to include document knowledge
+    await this.reloadSystemPromptWithContext();
+    
+    console.log(`✅ Document uploaded and context updated`);
+  }
+
+  /**
+   * Rebuild system prompt with uploaded compliance documents
+   */
+  private async reloadSystemPromptWithContext(): Promise<void> {
+    let enhancedPrompt = this.baseSystemPrompt;
+    
+    if (this.complianceContext.size > 0) {
+      enhancedPrompt += '\n\n---\n\n## UPLOADED COMPLIANCE DOCUMENTS\n\n';
+      enhancedPrompt += 'You have access to the following compliance documents. ';
+      enhancedPrompt += 'Use these as authoritative sources when analyzing code:\n\n';
+      
+      for (const [key, content] of this.complianceContext.entries()) {
+        const [type, name] = key.split(':');
+        enhancedPrompt += `### ${name} (${type.toUpperCase()})\n\n`;
+        // Truncate content for token limits (keep first 2000 chars)
+        const truncatedContent = content.length > 2000 
+          ? content.substring(0, 2000) + '...'
+          : content;
+        enhancedPrompt += `${truncatedContent}\n\n`;
+      }
+      
+      enhancedPrompt += '\n\n**CRITICAL**: When analyzing code, cross-reference against these documents ';
+      enhancedPrompt += 'and cite specific sections/clauses when reporting violations.\n';
+    }
+    
+    this.systemPrompt = enhancedPrompt;
+  }
+
+  /**
+   * Clear all uploaded compliance documents
+   */
+  clearComplianceContext(): void {
+    this.complianceContext.clear();
+    this.systemPrompt = this.baseSystemPrompt;
+    console.log('🧹 Cleared all compliance documents');
+  }
+
+  /**
+   * Get list of uploaded compliance documents
+   */
+  getUploadedDocuments(): string[] {
+    return Array.from(this.complianceContext.keys());
+  }
+
+  /**
    * Reload governance rules
    */
   async reloadGovernance(): Promise<void> {
     console.log('🔄 Reloading governance rules...');
     await this.governanceLoader.reload();
-    this.systemPrompt = this.governanceLoader.getSystemPrompt();
+    this.baseSystemPrompt = this.governanceLoader.getSystemPrompt();
+    await this.reloadSystemPromptWithContext();
     console.log('✅ Governance rules reloaded');
   }
 

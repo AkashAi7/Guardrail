@@ -13,6 +13,8 @@ export class HybridGuardrailAgent {
   private governanceLoader: GovernanceLoader;
   private governanceRules: string = '';
   private isInitialized: boolean = false;
+  private complianceContext: Map<string, string> = new Map(); // Store uploaded compliance docs
+  private baseGovernanceRules: string = ''; // Store original rules before enhancements
 
   constructor(
     private governancePath: string,
@@ -28,7 +30,8 @@ export class HybridGuardrailAgent {
       // Load governance rules
       console.log('📋 Loading governance rules...');
       await this.governanceLoader.loadAll();
-      this.governanceRules = this.governanceLoader.getSystemPrompt();
+      this.baseGovernanceRules = this.governanceLoader.getSystemPrompt();
+      this.governanceRules = this.baseGovernanceRules;
       console.log(`✅ Loaded ${this.governanceRules.length} characters of governance rules`);
 
       // Create provider using factory
@@ -121,13 +124,83 @@ export class HybridGuardrailAgent {
   async reloadGovernance(): Promise<void> {
     console.log('🔄 Reloading governance rules...');
     await this.governanceLoader.reload();
-    this.governanceRules = this.governanceLoader.getSystemPrompt();
+    this.baseGovernanceRules = this.governanceLoader.getSystemPrompt();
+    await this.reloadGovernanceWithContext();
+    console.log(`✅ Reloaded ${this.governanceRules.length} characters of governance rules`);
+  }
+
+  /**
+   * Upload compliance document for contextual analysis
+   */
+  async uploadComplianceDocument(
+    documentName: string,
+    content: string,
+    type: 'gdpr' | 'hipaa' | 'pci-dss' | 'soc2' | 'custom'
+  ): Promise<void> {
+    console.log(`📄 Uploading compliance document: ${documentName} (${type})`);
     
+    // Store document in context map
+    this.complianceContext.set(`${type}:${documentName}`, content);
+    
+    // Update governance rules to include document knowledge
+    await this.reloadGovernanceWithContext();
+    
+    console.log(`✅ Document uploaded and context updated`);
+  }
+
+  /**
+   * Rebuild governance rules with uploaded compliance documents
+   */
+  private async reloadGovernanceWithContext(): Promise<void> {
+    let enhancedRules = this.baseGovernanceRules;
+    
+    if (this.complianceContext.size > 0) {
+      enhancedRules += '\n\n---\n\n## UPLOADED COMPLIANCE DOCUMENTS\n\n';
+      enhancedRules += 'You have access to the following compliance documents. ';
+      enhancedRules += 'Use these as authoritative sources when analyzing code:\n\n';
+      
+      for (const [key, content] of this.complianceContext.entries()) {
+        const [type, name] = key.split(':');
+        enhancedRules += `### ${name} (${type.toUpperCase()})\n\n`;
+        // Truncate content for token limits (keep first 2000 chars)
+        const truncatedContent = content.length > 2000 
+          ? content.substring(0, 2000) + '...'
+          : content;
+        enhancedRules += `${truncatedContent}\n\n`;
+      }
+      
+      enhancedRules += '\n\n**CRITICAL**: When analyzing code, cross-reference against these documents ';
+      enhancedRules += 'and cite specific sections/clauses when reporting violations.\n';
+    }
+    
+    this.governanceRules = enhancedRules;
+    
+    // Update provider with new rules
+    if (this.provider && 'setGovernanceRules' in this.provider) {
+      (this.provider as any).setGovernanceRules(this.governanceRules);
+    }
+  }
+
+  /**
+   * Clear all uploaded compliance documents
+   */
+  clearComplianceContext(): void {
+    this.complianceContext.clear();
+    this.governanceRules = this.baseGovernanceRules;
+    
+    // Update provider with original rules
     if (this.provider && 'setGovernanceRules' in this.provider) {
       (this.provider as any).setGovernanceRules(this.governanceRules);
     }
     
-    console.log(`✅ Reloaded ${this.governanceRules.length} characters of governance rules`);
+    console.log('🧹 Cleared all compliance documents');
+  }
+
+  /**
+   * Get list of uploaded compliance documents
+   */
+  getUploadedDocuments(): string[] {
+    return Array.from(this.complianceContext.keys());
   }
 
   async getProviderInfo() {
