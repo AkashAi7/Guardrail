@@ -1,4 +1,4 @@
-# Code Guardrail Installer - AI-Only Version
+﻿# Code Guardrail Installer - AI-Only Version
 # Quick install script for the AI-powered Code Guardrail extension
 
 param(
@@ -13,7 +13,7 @@ $EXTENSION_URL = "$RELEASE_URL/code-guardrail-ai-only.vsix"
 
 Write-Host ""
 Write-Host "========================================" -ForegroundColor Cyan
-Write-Host "  🤖 Code Guardrail AI Installer" -ForegroundColor Cyan
+Write-Host "  [AI] Code Guardrail AI Installer" -ForegroundColor Cyan
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host ""
 Write-Host "Version: v$Version" -ForegroundColor Yellow
@@ -23,14 +23,14 @@ Write-Host ""
 # ============================================
 # Check Prerequisites
 # ============================================
-Write-Host "🔍 Checking prerequisites..." -ForegroundColor Cyan
+Write-Host "[CHECK] Checking prerequisites..." -ForegroundColor Cyan
 
 # Check Node.js
 try {
     $nodeVersion = node --version
-    Write-Host "✅ Node.js: $nodeVersion" -ForegroundColor Green
+    Write-Host "[OK] Node.js: $nodeVersion" -ForegroundColor Green
 } catch {
-    Write-Host "❌ Node.js not found" -ForegroundColor Red
+    Write-Host "[ERROR] Node.js not found" -ForegroundColor Red
     Write-Host ""
     Write-Host "Please install Node.js first:" -ForegroundColor Yellow
     Write-Host "  https://nodejs.org/" -ForegroundColor Cyan
@@ -41,9 +41,9 @@ try {
 # Check VS Code
 try {
     $codeVersion = code --version | Select-Object -First 1
-    Write-Host "✅ VS Code: $codeVersion" -ForegroundColor Green
+    Write-Host "[OK] VS Code: $codeVersion" -ForegroundColor Green
 } catch {
-    Write-Host "❌ VS Code not found" -ForegroundColor Red
+    Write-Host "[ERROR] VS Code not found" -ForegroundColor Red
     Write-Host ""
     Write-Host "Please install VS Code first:" -ForegroundColor Yellow
     Write-Host "  https://code.visualstudio.com/" -ForegroundColor Cyan
@@ -52,21 +52,21 @@ try {
 }
 
 Write-Host ""
-Write-Host "✅ All prerequisites satisfied" -ForegroundColor Green
+Write-Host "[OK] All prerequisites satisfied" -ForegroundColor Green
 
 # ============================================
 # Download Extension
 # ============================================
 Write-Host ""
-Write-Host "📥 Downloading extension (~7MB)..." -ForegroundColor Cyan
+Write-Host "[DOWNLOAD] Downloading extension (~7MB)..." -ForegroundColor Cyan
 
 $tempVSIX = "$env:TEMP\code-guardrail-ai-only.vsix"
 
 try {
     Invoke-WebRequest -Uri $EXTENSION_URL -OutFile $tempVSIX -UseBasicParsing
-    Write-Host "✅ Downloaded extension" -ForegroundColor Green
+    Write-Host "[OK] Downloaded extension" -ForegroundColor Green
 } catch {
-    Write-Host "❌ Failed to download from: $EXTENSION_URL" -ForegroundColor Red
+    Write-Host "[ERROR] Failed to download from: $EXTENSION_URL" -ForegroundColor Red
     Write-Host "   Error: $_" -ForegroundColor Red
     exit 1
 }
@@ -75,7 +75,7 @@ try {
 # Install Extension
 # ============================================
 Write-Host ""
-Write-Host "🔧 Installing extension..." -ForegroundColor Cyan
+Write-Host "[SETUP] Installing extension..." -ForegroundColor Cyan
 
 try {
     # Check if extension is already installed
@@ -90,14 +90,14 @@ try {
     code --install-extension $tempVSIX --force 2>&1 | Out-Null
     
     if ($LASTEXITCODE -eq 0) {
-        Write-Host "✅ Extension installed successfully" -ForegroundColor Green
+        Write-Host "[OK] Extension installed successfully" -ForegroundColor Green
     } else {
-        Write-Host "⚠️ Extension may be installed but with warnings" -ForegroundColor Yellow
+        Write-Host "[WARN] Extension may be installed but with warnings" -ForegroundColor Yellow
     }
     
     Remove-Item $tempVSIX -Force -ErrorAction SilentlyContinue
 } catch {
-    Write-Host "❌ Failed to install extension: $_" -ForegroundColor Red
+    Write-Host "[ERROR] Failed to install extension: $_" -ForegroundColor Red
     Remove-Item $tempVSIX -Force -ErrorAction SilentlyContinue
     exit 1
 }
@@ -106,7 +106,7 @@ try {
 # Clone Repository (Required for Service)
 # ============================================
 Write-Host ""
-Write-Host "📦 Setting up service..." -ForegroundColor Cyan
+Write-Host "[PACKAGE] Setting up service..." -ForegroundColor Cyan
 
 $repoPath = "$env:USERPROFILE\Guardrail"
 
@@ -120,9 +120,9 @@ if (Test-Path $repoPath) {
     Write-Host "  Cloning repository..." -ForegroundColor Cyan
     try {
         git clone $REPO_URL $repoPath 2>&1 | Out-Null
-        Write-Host "✅ Repository cloned to: $repoPath" -ForegroundColor Green
+        Write-Host "[OK] Repository cloned to: $repoPath" -ForegroundColor Green
     } catch {
-        Write-Host "❌ Failed to clone repository" -ForegroundColor Red
+        Write-Host "[ERROR] Failed to clone repository" -ForegroundColor Red
         Write-Host "   Please install git: https://git-scm.com/" -ForegroundColor Yellow
         exit 1
     }
@@ -142,9 +142,9 @@ if (Test-Path $servicePath) {
     npm run build --silent 2>&1 | Out-Null
     
     Pop-Location
-    Write-Host "✅ Service ready" -ForegroundColor Green
+    Write-Host "[OK] Service ready" -ForegroundColor Green
 } else {
-    Write-Host "⚠️ Service folder not found" -ForegroundColor Yellow
+    Write-Host "[WARN] Service folder not found" -ForegroundColor Yellow
 }
 
 # ============================================
@@ -152,35 +152,35 @@ if (Test-Path $servicePath) {
 # ============================================
 Write-Host ""
 Write-Host "========================================" -ForegroundColor Green
-Write-Host "  ✅ Installation Complete!" -ForegroundColor Green
+Write-Host "  [OK] Installation Complete!" -ForegroundColor Green
 Write-Host "========================================" -ForegroundColor Green
 Write-Host ""
-Write-Host "🤖 AI-Only Analysis Mode" -ForegroundColor Cyan
+Write-Host "[AI] AI-Only Analysis Mode" -ForegroundColor Cyan
 Write-Host "   The service will auto-start when VS Code launches" -ForegroundColor Gray
 Write-Host ""
-Write-Host "🚀 Next Steps:" -ForegroundColor Yellow
+Write-Host "[START] Next Steps:" -ForegroundColor Yellow
 Write-Host ""
 Write-Host "  1. Open VS Code in the Guardrail directory:" -ForegroundColor White
 Write-Host "     cd $repoPath" -ForegroundColor Gray
 Write-Host "     code ." -ForegroundColor Gray
 Write-Host ""
 Write-Host "  2. The service will auto-start when VS Code opens!" -ForegroundColor White
-Write-Host "     • Look for '🤖 AI' in the status bar" -ForegroundColor Gray
+Write-Host "     - Look for '[AI] AI' in the status bar" -ForegroundColor Gray
 Write-Host ""
 Write-Host "  3. Test with sample files:" -ForegroundColor White
-Write-Host "     • Open: test-files/test-auth-service.ts" -ForegroundColor Gray
-Write-Host "     • Or: test-files/test-flask-api.py" -ForegroundColor Gray
+Write-Host "     - Open: test-files/test-auth-service.ts" -ForegroundColor Gray
+Write-Host "     - Or: test-files/test-flask-api.py" -ForegroundColor Gray
 Write-Host ""
 Write-Host "  4. Scan entire project:" -ForegroundColor White
-Write-Host "     • Ctrl+Shift+P → 'Code Guardrail: Scan Entire Project'" -ForegroundColor Gray
+Write-Host "     - Ctrl+Shift+P -> Code Guardrail: Scan Entire Project" -ForegroundColor Gray
 Write-Host ""
-Write-Host "📚 Documentation:" -ForegroundColor Yellow
+Write-Host "[DOCS] Documentation:" -ForegroundColor Yellow
 Write-Host "   $REPO_URL" -ForegroundColor Cyan
 Write-Host ""
-Write-Host "✨ Features:" -ForegroundColor Yellow
-Write-Host "   • Detects hardcoded secrets (API keys, passwords)" -ForegroundColor White
-Write-Host "   • Finds SQL injection vulnerabilities" -ForegroundColor White
-Write-Host "   • Catches XSS, command injection, path traversal" -ForegroundColor White
-Write-Host "   • Identifies weak cryptography" -ForegroundColor White
-Write-Host "   • And much more..." -ForegroundColor White
+Write-Host "[FEATURES] Features:" -ForegroundColor Yellow
+Write-Host "   - Detects hardcoded secrets (API keys, passwords)" -ForegroundColor White
+Write-Host "   - Finds SQL injection vulnerabilities" -ForegroundColor White
+Write-Host "   - Catches XSS, command injection, path traversal" -ForegroundColor White
+Write-Host "   - Identifies weak cryptography" -ForegroundColor White
+Write-Host "   - And much more..." -ForegroundColor White
 Write-Host ""
