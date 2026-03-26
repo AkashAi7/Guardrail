@@ -8,42 +8,35 @@ AI-powered security & compliance scanner using GitHub Copilot SDK intelligence.
 - **Robust Backend**: Contains a self-healing process loop ensuring continuous protection.
 - **Multi-Model Support**: Use `gpt-4`, `gpt-4o`, or `gpt-3.5-turbo` straight from settings.
 
-## Local Setup (Beginner Guide)
+## 🛠️ Setup for Beginners 
 
-Since this extension is not yet published to the VS Code Marketplace, follow these exact steps to build and install it locally from your machine:
+If you are running into "ENOENT" or "file not found" errors, follow these exact steps.
+**⚠️ IMPORTANT:** DO NOT open your terminal as Administrator and DO NOT run this inside `C:\Windows\System32`. 
 
-### Prerequisites
-1. **Node.js**: Make sure you have [Node.js](https://nodejs.org/) installed (v18 or higher recommended).
-2. **Git**: Ensure [Git](https://git-scm.com/) is installed.
-
-### Step 1: Clone the Repository
-Open a terminal (like PowerShell or Command Prompt, **not** as Administrator) and run:
+### Step 1: Open a safe folder
+Open a standard terminal (PowerShell or Command Prompt) and move to your Desktop:
 ```bash
-git clone https://github.com/AkashAi7/Guardrail.git
-cd Guardrail
+cd ~/Desktop
 ```
 
-### Step 2: Build the Extension File (.vsix)
-Next, navigate into the `extension` folder to install dependencies and package the extension:
+### Step 2: Clone & Build the Extension
+Copy and paste these commands one by one to download the code and build the installation file:
 ```bash
-cd extension
+git clone https://github.com/AkashAi7/Guardrail.git
+cd Guardrail/extension
 npm install
 npm run package
 ```
-*This will generate a file named roughly `code-guardrail-0.8.0.vsix` inside your `extension` folder.*
+*(When it finishes, it will generate a file named `code-guardrail-0.8.0.vsix` inside your `extension` folder.)*
 
-### Step 3: Install the Extension in VS Code
-You can install this `.vsix` file directly inside VS Code:
+### Step 3: Install via VS Code (Visual Method - Error Free!)
+Installing through the terminal can cause pathing errors. Use the VS Code interface instead:
 1. Open **Visual Studio Code**.
-2. Go to the **Extensions** view (`Ctrl+Shift+X` or `Cmd+Shift+X`).
-3. Click the **`...` (Views and More Actions)** menu icon at the top right of the Extensions panel.
-4. Select **"Install from VSIX..."** from the dropdown menu.
-5. In the file explorer, navigate to the `Guardrail/extension` folder where you just generated the file, select your `.vsix` file, and click **Install**.
-
-Alternatively, via command line (make sure you are still inside the `extension` folder where the VSIX was generated):
-```bash
-code --install-extension code-guardrail-0.8.0.vsix
-```
+2. Press **`Ctrl+Shift+X`** (or **`Cmd+Shift+X`** on Mac) to open your **Extensions** sidebar.
+3. At the top right of the Extensions sidebar, click the **`...`** (Views and More Actions) menu icon.
+4. Click **"Install from VSIX..."** in the dropdown.
+5. A file explorer window will open. Navigate to your Desktop -> `Guardrail` -> `extension` folder.
+6. Select the **`code-guardrail-0.8.0.vsix`** file and click **Install**.
 
 ### Step 4: Run Configuration
 1. Once installed, the extension will activate in the background.
