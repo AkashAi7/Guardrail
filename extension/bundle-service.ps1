@@ -40,4 +40,4 @@ Write-Host "✅ Service bundled successfully!" -ForegroundColor Green
 Write-Host "   Location: $bundledServiceDir" -ForegroundColor Gray
 Write-Host ""
 Write-Host "Now you can package the extension with:" -ForegroundColor Yellow
-Write-Host "   npx @vscode/vsce package" -ForegroundColor Cyan
+Write-Host '   npx @vscode/vsce package' -ForegroundColor Cyan

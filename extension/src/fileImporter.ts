@@ -36,6 +36,81 @@ async function loadPdfParse() {
 }
 
 /**
+ * Extract text from old Word 97-2003 .doc files (OLE Compound Binary)
+ * Pure JS — no native deps. Scans for readable text runs, filters XML/metadata.
+ */
+function extractTextFromOleDoc(filePath: string): string {
+    const buf = fs.readFileSync(filePath);
+
+    // Pass 1: Scan for UTF-16LE runs (every other byte = 0x00)
+    const utf16Chunks: string[] = [];
+    let i = 0;
+    while (i < buf.length - 1) {
+        if (buf[i + 1] === 0 && buf[i] >= 0x20 && buf[i] < 0x7F) {
+            let run = '';
+            while (
+                i < buf.length - 1 &&
+                buf[i + 1] === 0 &&
+                (buf[i] >= 0x20 || buf[i] === 0x0D || buf[i] === 0x0A)
+            ) {
+                if (buf[i] === 0x0D || buf[i] === 0x0A) { run += '\n'; }
+                else { run += String.fromCharCode(buf[i]); }
+                i += 2;
+            }
+            const cleaned = run.trim();
+            // Filter out XML/metadata blobs, keep prose-looking text
+            if (cleaned.length > 8 && !cleaned.startsWith('<') && !cleaned.startsWith('{') && !cleaned.includes('xmlns')) {
+                utf16Chunks.push(cleaned);
+            }
+        } else {
+            i++;
+        }
+    }
+
+    // Pass 2: Latin-1 printable runs as fallback
+    const latin1Chunks: string[] = [];
+    let j = 0;
+    while (j < buf.length) {
+        if (buf[j] >= 0x20 && buf[j] < 0x7F) {
+            let run = '';
+            while (j < buf.length && ((buf[j] >= 0x20 && buf[j] < 0x7F) || buf[j] === 0x0A || buf[j] === 0x0D)) {
+                run += String.fromCharCode(buf[j]);
+                j++;
+            }
+            const cleaned = run.trim();
+            if (cleaned.length > 10 && !cleaned.startsWith('<') && !cleaned.startsWith('{') && !cleaned.includes('xmlns') && !cleaned.includes('<?xml')) {
+                latin1Chunks.push(cleaned);
+            }
+        } else {
+            j++;
+        }
+    }
+
+    // Use whichever pass produced more content
+    const primary = utf16Chunks.join('\n').trim();
+    const secondary = latin1Chunks.join('\n').trim();
+    const result = primary.length >= secondary.length ? primary : secondary;
+
+    // Detect DRM/encryption: EncryptedPackage in OLE directory = content is locked
+    const allText = (primary + ' ' + secondary).toLowerCase();
+    if (allText.includes('encryptedpackage') || allText.includes('drmencrypted')) {
+        throw new Error(
+            'This file is DRM/IRM-protected. The content is encrypted and cannot be read. ' +
+            'Please open it in Word, remove protection (File → Info → Protect Document), ' +
+            'save as .docx or export as .txt, then re-upload.'
+        );
+    }
+
+    if (result.trim().length < 100) {
+        throw new Error(
+            'Could not extract readable text from this file. ' +
+            'Please open it in Word and save as .docx or export as .txt, then re-upload.'
+        );
+    }
+    return result;
+}
+
+/**
  * Parse rules from plain text format
  * Supports multiple formats:
  * 
@@ -163,9 +238,29 @@ function parseSimpleTextFormat(content: string): CustomRuleConfig[] {
 }
 
 /**
- * Extract text from a Word document (.docx)
+ * Extract text from a Word document.
+ * - Modern .docx (ZIP/OOXML): uses mammoth
+ * - Old .doc (OLE binary, Word 97-2003): uses pure-JS OLE scanner
  */
 async function extractTextFromWord(filePath: string): Promise<string> {
+    // Detect format by magic bytes
+    const header = Buffer.allocUnsafe(4);
+    const fd = fs.openSync(filePath, 'r');
+    fs.readSync(fd, header, 0, 4, 0);
+    fs.closeSync(fd);
+    const hex = header.toString('hex');
+
+    if (hex === 'd0cf11e0') {
+        // Old OLE binary .doc — extract with pure-JS scanner
+        console.log('[Guardrail] Detected OLE binary .doc, using fallback extractor');
+        return extractTextFromOleDoc(filePath);
+    }
+
+    if (!hex.startsWith('504b')) {
+        // Unknown format — still try mammoth, let it give a clear error
+        console.warn('[Guardrail] Unknown file header, attempting mammoth anyway');
+    }
+
     const mammothLib = await loadMammoth();
     const buffer = fs.readFileSync(filePath);
     const result = await mammothLib.extractRawText({ buffer });
@@ -180,6 +275,25 @@ async function extractTextFromPdf(filePath: string): Promise<string> {
     const buffer = fs.readFileSync(filePath);
     const data = await pdfParseLib(buffer);
     return data.text;
+}
+
+/**
+ * Extract raw text from any supported file format (no rule parsing)
+ */
+export async function extractTextFromFile(filePath: string): Promise<string> {
+    const ext = path.extname(filePath).toLowerCase();
+    switch (ext) {
+        case '.md':
+        case '.txt':
+            return fs.readFileSync(filePath, 'utf8');
+        case '.docx':
+        case '.doc':
+            return await extractTextFromWord(filePath);
+        case '.pdf':
+            return await extractTextFromPdf(filePath);
+        default:
+            throw new Error(`Unsupported file format: ${ext}. Supported: .md, .txt, .pdf, .docx`);
+    }
 }
 
 /**

@@ -3,17 +3,30 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { SecurityScanner, Finding, GuardrailConfig } from './scanner';
 import { parseRulesFromMarkdown, loadRulesFromFolder, generateSampleRulesMarkdown } from './ruleParser';
-import { importRulesFromFile, getSupportedExtensions, generateSampleTextRules } from './fileImporter';
+import { importRulesFromFile, extractTextFromFile, getSupportedExtensions, generateSampleTextRules } from './fileImporter';
 import { ServiceManager } from './serviceManager';
 
 let diagnosticCollection: vscode.DiagnosticCollection;
 let scanner: SecurityScanner;
 let statusBarItem: vscode.StatusBarItem;
 let serviceManager: ServiceManager | null = null;
+let scheduledScanTimer: ReturnType<typeof setInterval> | null = null;
 
 const CONFIG_FILE_NAME = '.guardrail.json';
 const RULES_FOLDER_NAME = '.guardrail';
 const RULES_MD_FILE = 'guardrail-rules.md';
+
+type ScanMode = 'realtime' | 'manual' | 'scheduled';
+
+function getConfig() {
+    const cfg = vscode.workspace.getConfiguration('codeGuardrail');
+    return {
+        scanMode: cfg.get<ScanMode>('scanMode', 'manual'),
+        analyzeOnSave: cfg.get<boolean>('analyzeOnSave', false),
+        analyzeOnOpen: cfg.get<boolean>('analyzeOnOpen', false),
+        scheduledIntervalMinutes: cfg.get<number>('scheduledIntervalMinutes', 15),
+    };
+}
 
 export function activate(context: vscode.ExtensionContext) {
     console.log('Code Guardrail activating...');
@@ -39,10 +52,9 @@ export function activate(context: vscode.ExtensionContext) {
     
     // Create status bar
     statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
-    statusBarItem.text = '$(shield-check) Guardrail: Ready';
-    statusBarItem.tooltip = 'Code Guardrail - Active and scanning. Click for more options.';
     statusBarItem.command = 'codeGuardrail.showQuickPick';
     statusBarItem.show();
+    updateStatusBarForMode();
     
     // Register commands
     const analyzeCmd = vscode.commands.registerCommand('codeGuardrail.analyzeFile', () => {
@@ -173,6 +185,11 @@ export function activate(context: vscode.ExtensionContext) {
                 action: 'create-rule'
             },
             {
+                label: '$(cloud-upload) Upload Rule File',
+                description: 'Upload .md, .txt, .pdf, or .docx rule files',
+                action: 'upload-rule'
+            },
+            {
                 label: '$(cloud-download) Import from URL',
                 description: 'Download rules from organization repository',
                 action: 'import-url'
@@ -186,6 +203,16 @@ export function activate(context: vscode.ExtensionContext) {
                 label: '$(clear-all) Clear All Issues',
                 description: 'Remove all diagnostics from the Problems panel',
                 action: 'clear'
+            },
+            {
+                label: '$(settings-gear) Toggle Scan Mode',
+                description: `Current: ${getConfig().scanMode}`,
+                action: 'toggle-mode'
+            },
+            {
+                label: '$(settings) Choose Model',
+                description: 'Select the model for AI analysis',
+                action: 'choose-model'
             },
             {
                 label: '$(info) About Code Guardrail',
@@ -218,6 +245,9 @@ export function activate(context: vscode.ExtensionContext) {
                 case 'create-rule':
                     vscode.commands.executeCommand('codeGuardrail.createCustomRule');
                     break;
+                case 'upload-rule':
+                    vscode.commands.executeCommand('codeGuardrail.uploadRuleFile');
+                    break;
                 case 'import-url':
                     vscode.commands.executeCommand('codeGuardrail.importRulesFromUrl');
                     break;
@@ -226,6 +256,12 @@ export function activate(context: vscode.ExtensionContext) {
                     break;
                 case 'clear':
                     vscode.commands.executeCommand('codeGuardrail.clearDiagnostics');
+                    break;
+                case 'toggle-mode':
+                    vscode.commands.executeCommand('codeGuardrail.toggleScanMode');
+                    break;
+                case 'choose-model':
+                    vscode.commands.executeCommand('codeGuardrail.chooseModel');
                     break;
                 case 'about':
                     const builtInCount = scanner.getBuiltInRuleIds().length;
@@ -578,6 +614,11 @@ const apiKey = process.env.COMPANY_API_KEY;
                 action: 'import-url'
             },
             {
+                label: '$(cloud-upload) Upload Rule File',
+                description: 'Upload one or more rule files (.md, .txt, .pdf, .docx)',
+                action: 'upload-rule'
+            },
+            {
                 label: '$(file-add) Import from File',
                 description: 'Import from PDF, Word, or Markdown',
                 action: 'import-file'
@@ -611,6 +652,9 @@ const apiKey = process.env.COMPANY_API_KEY;
                 break;
             case 'import-url':
                 vscode.commands.executeCommand('codeGuardrail.importRulesFromUrl');
+                break;
+            case 'upload-rule':
+                vscode.commands.executeCommand('codeGuardrail.uploadRuleFile');
                 break;
             case 'import-file':
                 vscode.commands.executeCommand('codeGuardrail.importRules');
@@ -918,6 +962,137 @@ const apiKey = process.env.COMPANY_API_KEY;
         }
     });
     
+    // Upload Rule File — copies files directly into .guardrail/ folder
+    const uploadRuleFileCmd = vscode.commands.registerCommand('codeGuardrail.uploadRuleFile', async () => {
+        const workspaceFolders = vscode.workspace.workspaceFolders;
+        if (!workspaceFolders) {
+            vscode.window.showWarningMessage('Open a workspace folder first');
+            return;
+        }
+
+        const fileUris = await vscode.window.showOpenDialog({
+            canSelectMany: true,
+            filters: {
+                'Rule Files': ['md', 'txt', 'pdf', 'docx', 'doc'],
+                'Markdown': ['md'],
+                'Text': ['txt'],
+                'PDF': ['pdf'],
+                'Word': ['docx', 'doc']
+            },
+            title: 'Upload Rule File(s) to .guardrail/'
+        });
+
+        if (!fileUris || fileUris.length === 0) {
+            return;
+        }
+
+        const rulesDir = path.join(workspaceFolders[0].uri.fsPath, RULES_FOLDER_NAME);
+        if (!fs.existsSync(rulesDir)) {
+            fs.mkdirSync(rulesDir, { recursive: true });
+        }
+
+        await vscode.window.withProgress({
+            location: vscode.ProgressLocation.Notification,
+            title: `Uploading ${fileUris.length} rule file(s)...`,
+            cancellable: false
+        }, async (progress) => {
+            const results: { name: string; rules: number; success: boolean; error?: string }[] = [];
+
+            for (let i = 0; i < fileUris.length; i++) {
+                const srcPath = fileUris[i].fsPath;
+                const baseName = path.basename(srcPath);
+                const ext = path.extname(srcPath).toLowerCase();
+
+                progress.report({
+                    message: `${i + 1}/${fileUris.length}: ${baseName}`,
+                    increment: 100 / fileUris.length
+                });
+
+                try {
+                    // Universal conversion layer: every file type → .md saved in .guardrail/
+                    const mdName = ext === '.md'
+                        ? baseName  // keep .md as-is
+                        : baseName.replace(/\.[^.]+$/, '.md');  // .docx/.doc/.pdf/.txt → .md
+                    const destPath = path.join(rulesDir, mdName);
+
+                    let mdContent: string;
+                    let ruleCount = 0;
+
+                    if (ext === '.md') {
+                        // Already markdown — copy directly
+                        mdContent = fs.readFileSync(srcPath, 'utf8');
+                        ruleCount = (mdContent.match(/^## /gm) || []).length;
+                    } else if (ext === '.txt') {
+                        // Plain text — wrap in markdown with filename as heading
+                        const raw = fs.readFileSync(srcPath, 'utf8');
+                        mdContent = `# ${baseName.replace(/\.[^.]+$/, '')}\n\n${raw}`;
+                        ruleCount = (raw.match(/^## /gm) || []).length;
+                    } else {
+                        // PDF / DOCX / DOC — extract text, try structured rule parse first,
+                        // fall back to saving raw text as compliance context
+                        const rawText = await extractTextFromFile(srcPath);
+                        try {
+                            const parsed = await importRulesFromFile(srcPath);
+                            mdContent = `# Rules from ${baseName}\n\n`;
+                            for (const rule of parsed) {
+                                mdContent += `## ${rule.name}\n`;
+                                mdContent += `- Severity: ${rule.severity}\n`;
+                                mdContent += `- Pattern: \`${rule.pattern}\`\n`;
+                                mdContent += `- Message: ${rule.message}\n`;
+                                mdContent += `- Category: ${rule.category}\n`;
+                                if (rule.languages) {
+                                    mdContent += `- Languages: ${rule.languages.join(', ')}\n`;
+                                }
+                                mdContent += '\n';
+                            }
+                            ruleCount = parsed.length;
+                        } catch {
+                            // No structured rules — save raw text as compliance context
+                            mdContent = `# ${baseName.replace(/\.[^.]+$/, '')}\n\n${rawText}`;
+                            ruleCount = 0;
+                        }
+                    }
+
+                    fs.writeFileSync(destPath, mdContent);
+                    results.push({ name: mdName, rules: ruleCount, success: true });
+                } catch (err: any) {
+                    const errMsg = err?.message || String(err);
+                    console.error(`[Guardrail] Upload failed for ${baseName}:`, errMsg, err?.stack);
+                    results.push({ name: baseName, rules: 0, success: false, error: errMsg });
+                }
+            }
+
+            // Reload rules
+            loadCustomRules();
+
+            // Re-analyze open files
+            vscode.workspace.textDocuments.forEach(doc => {
+                if (shouldAnalyze(doc)) {
+                    analyzeDocument(doc);
+                }
+            });
+
+            // Build summary message
+            const succeeded = results.filter(r => r.success);
+            const failed = results.filter(r => !r.success);
+            const totalRules = succeeded.reduce((sum, r) => sum + r.rules, 0);
+            const asContext = succeeded.filter(r => r.rules === 0).length;
+
+            let summary = `✅ Uploaded ${succeeded.length} file(s)`;
+            if (totalRules > 0) { summary += ` with ${totalRules} structured rule(s)`; }
+            if (asContext > 0) { summary += ` (${asContext} saved as AI compliance context)`; }
+            if (failed.length > 0) {
+                const errDetails = failed.map(f => `${f.name}: ${f.error || 'unknown error'}`).join('\n');
+                vscode.window.showErrorMessage(`Upload failed for ${failed.length} file(s): ${errDetails}`);
+            }
+
+            const action = await vscode.window.showInformationMessage(summary, 'Open Rules Folder');
+            if (action === 'Open Rules Folder') {
+                vscode.commands.executeCommand('revealFileInOS', vscode.Uri.file(rulesDir));
+            }
+        });
+    });
+
     // Register on save handler
     const onSave = vscode.workspace.onDidSaveTextDocument((document) => {
         // Reload rules if config/rules file is saved
@@ -932,20 +1107,72 @@ const apiKey = process.env.COMPANY_API_KEY;
             vscode.window.showInformationMessage('Code Guardrail rules reloaded');
         }
         
-        if (shouldAnalyze(document)) {
+        const cfg = getConfig();
+        if (cfg.scanMode === 'realtime' && cfg.analyzeOnSave && shouldAnalyze(document)) {
             analyzeDocument(document);
         }
     });
     
     // Register on open handler
     const onOpen = vscode.workspace.onDidOpenTextDocument((document) => {
-        if (shouldAnalyze(document)) {
+        const cfg = getConfig();
+        if (cfg.scanMode === 'realtime' && cfg.analyzeOnOpen && shouldAnalyze(document)) {
             analyzeDocument(document);
         }
     });
     
-    // Analyze currently open files
-    if (vscode.window.activeTextEditor) {
+    // Setup scheduled scanning
+    setupScheduledScan();
+
+    // Listen for configuration changes
+    const onConfigChange = vscode.workspace.onDidChangeConfiguration((e) => {
+        if (e.affectsConfiguration('codeGuardrail')) {
+            setupScheduledScan();
+            updateStatusBarForMode();
+        }
+    });
+    
+    // Toggle scan mode command
+    const toggleScanModeCmd = vscode.commands.registerCommand('codeGuardrail.toggleScanMode', async () => {
+        const current = getConfig().scanMode;
+        const items = [
+            { label: 'Manual', description: current === 'manual' ? '(current)' : '', value: 'manual' as ScanMode },
+            { label: 'Realtime', description: current === 'realtime' ? '(current)' : '', value: 'realtime' as ScanMode },
+            { label: 'Scheduled', description: current === 'scheduled' ? '(current)' : '', value: 'scheduled' as ScanMode },
+        ];
+        const picked = await vscode.window.showQuickPick(items, { placeHolder: `Current mode: ${current}` });
+        if (picked) {
+            const cfg = vscode.workspace.getConfiguration('codeGuardrail');
+            await cfg.update('scanMode', picked.value, vscode.ConfigurationTarget.Workspace);
+            if (picked.value === 'realtime') {
+                await cfg.update('analyzeOnSave', true, vscode.ConfigurationTarget.Workspace);
+                await cfg.update('analyzeOnOpen', true, vscode.ConfigurationTarget.Workspace);
+            }
+            vscode.window.showInformationMessage(`Scan mode set to: ${picked.label}`);
+        }
+    });
+    
+    // Choose model command
+    const chooseModelCmd = vscode.commands.registerCommand('codeGuardrail.chooseModel', async () => {
+        const models = ['gpt-4', 'gpt-4o', 'gpt-3.5-turbo'];
+        let currentModel = vscode.workspace.getConfiguration('codeGuardrail').get<string>('model', 'gpt-4');
+        const selected = await vscode.window.showQuickPick(models, {
+            placeHolder: `Select AI model (current: ${currentModel})`
+        });
+        
+        if (selected) {
+            await vscode.workspace.getConfiguration('codeGuardrail').update('model', selected, vscode.ConfigurationTarget.Global);
+            vscode.window.showInformationMessage(`Model updated to ${selected}. Restarting service...`);
+            if (serviceManager) {
+                await serviceManager.stop();
+                serviceManager.start();
+            }
+        }
+    });
+    
+    // Analyze currently open file only in realtime mode
+    const cfg = getConfig();
+    if (cfg.scanMode === 'realtime' && cfg.analyzeOnOpen && vscode.window.activeTextEditor) {
         analyzeDocument(vscode.window.activeTextEditor.document);
     }
     
@@ -961,14 +1188,18 @@ const apiKey = process.env.COMPANY_API_KEY;
         initCmd,
         importCmd,
         importUrlCmd,
+        uploadRuleFileCmd,
         createRuleCmd,
         setupOrgCmd,
         manageRulesCmd,
         uploadComplianceDocumentCmd,
         viewComplianceDocumentsCmd,
         clearComplianceDocumentsCmd,
+        toggleScanModeCmd,
+        chooseModelCmd,
         onSave,
-        onOpen
+        onOpen,
+        onConfigChange
     );
     
     // Show welcome message with clear next steps
@@ -1076,6 +1307,39 @@ function shouldAnalyze(document: vscode.TextDocument): boolean {
     return supportedExtensions.some(ext => document.fileName.endsWith(ext));
 }
 
+function setupScheduledScan(): void {
+    // Clear existing timer
+    if (scheduledScanTimer) {
+        clearInterval(scheduledScanTimer);
+        scheduledScanTimer = null;
+    }
+
+    const cfg = getConfig();
+    if (cfg.scanMode !== 'scheduled') {
+        return;
+    }
+
+    const intervalMs = cfg.scheduledIntervalMinutes * 60 * 1000;
+    scheduledScanTimer = setInterval(() => {
+        // Scan all open text documents
+        vscode.workspace.textDocuments.forEach(doc => {
+            if (shouldAnalyze(doc)) {
+                analyzeDocument(doc);
+            }
+        });
+    }, intervalMs);
+
+    console.log(`Scheduled scan every ${cfg.scheduledIntervalMinutes} min`);
+}
+
+function updateStatusBarForMode(): void {
+    if (!statusBarItem) { return; }
+    const mode = getConfig().scanMode;
+    const modeLabel = mode === 'realtime' ? 'RT' : mode === 'scheduled' ? 'Sched' : 'Manual';
+    statusBarItem.text = `$(shield-check) Guardrail [${modeLabel}]`;
+    statusBarItem.tooltip = `Code Guardrail - Mode: ${mode}. Click for options.`;
+}
+
 async function analyzeDocument(document: vscode.TextDocument) {
     const text = document.getText();
     let findings: Finding[] = [];
@@ -1095,6 +1359,15 @@ async function analyzeDocument(document: vscode.TextDocument) {
         statusBarItem.tooltip = 'AI service must be running for analysis. Click to retry.';
         return;
     }
+
+    // Show progress while analyzing
+    const lineCount = text.split('\n').length;
+    statusBarItem.text = `$(sync~spin) Guardrail: Analyzing (${lineCount} lines)...`;
+    statusBarItem.backgroundColor = undefined;
+
+    // Scale timeout: 120s base + 60s per extra 80-line chunk
+    const chunks = Math.ceil(lineCount / 70);
+    const timeout = Math.max(120000, chunks * 120000);
     
     try {
         const response = await serviceManager.makeRequest('/analyze', {
@@ -1104,11 +1377,28 @@ async function analyzeDocument(document: vscode.TextDocument) {
                 filePath: document.fileName,
                 language: document.languageId
             },
-            timeout: 30000 // 30 second timeout for AI analysis
+            timeout
         });
         
         // Convert backend response to Finding format
         if (response.success && response.result && response.result.findings) {
+            // Check for partial failures (e.g., timeout with empty findings)
+            if (response.result.findings.length === 0 && response.result.error) {
+                console.warn('⚠️ AI analysis returned no findings with error:', response.result.error);
+                vscode.window.showWarningMessage(
+                    `AI analysis issue: ${response.result.error}. The service may need to be restarted.`,
+                    'Restart Service'
+                ).then(selection => {
+                    if (selection === 'Restart Service' && serviceManager) {
+                        serviceManager.stop().then(() => serviceManager!.start());
+                    }
+                });
+                statusBarItem.text = '$(warning) Guardrail: Analysis Timeout';
+                statusBarItem.backgroundColor = new vscode.ThemeColor('statusBarItem.warningBackground');
+                statusBarItem.tooltip = response.result.error;
+                return;
+            }
+
             findings = response.result.findings.map((finding: any) => {
                 // Calculate offsets from line numbers
                 const lines = text.split('\n');
@@ -1520,6 +1810,11 @@ export function deactivate() {
         serviceManager.stop().then(() => {
             console.log('✅ Guardrail service stopped');
         });
+    }
+    
+    if (scheduledScanTimer) {
+        clearInterval(scheduledScanTimer);
+        scheduledScanTimer = null;
     }
     
     if (diagnosticCollection) {

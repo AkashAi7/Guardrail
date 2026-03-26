@@ -61,18 +61,20 @@ export class HybridGuardrailAgent {
       throw new Error('Agent not initialized. Call initialize() first.');
     }
 
-    console.log(`\n🔍 Analyzing: ${request.filePath} (${request.language})`);
+    const lines = request.content.split('\n');
+    const LINE_THRESHOLD = 80; // chunk files larger than this
+
+    console.log(`\n🔍 Analyzing: ${request.filePath} (${request.language}, ${lines.length} lines)`);
 
     try {
-      // Use provider to perform analysis
+      if (lines.length > LINE_THRESHOLD) {
+        return await this.analyzeInChunks(request, lines);
+      }
+
+      // Small file — single-pass analysis
       const result = await this.provider.analyze(request);
 
       console.log(`✅ Analysis complete: ${result.summary.totalIssues} issues found`);
-      console.log(`   - High: ${result.summary.high}`);
-      console.log(`   - Medium: ${result.summary.medium}`);
-      console.log(`   - Low: ${result.summary.low}`);
-      console.log(`   - Info: ${result.summary.info}`);
-
       return result;
 
     } catch (error: any) {
@@ -93,6 +95,82 @@ export class HybridGuardrailAgent {
         error: error.message
       };
     }
+  }
+
+  /**
+   * Split a large file into overlapping chunks and merge findings.
+   */
+  private async analyzeInChunks(
+    request: AnalysisRequest,
+    lines: string[]
+  ): Promise<AnalysisResult> {
+    const CHUNK_SIZE = 70;    // lines per chunk
+    const OVERLAP = 5;        // overlapping lines for context continuity
+    const startTime = Date.now();
+
+    // Build chunks
+    const chunks: { content: string; startLine: number }[] = [];
+    for (let i = 0; i < lines.length; i += CHUNK_SIZE - OVERLAP) {
+      const end = Math.min(i + CHUNK_SIZE, lines.length);
+      chunks.push({
+        content: lines.slice(i, end).join('\n'),
+        startLine: i + 1 // 1-based
+      });
+      if (end >= lines.length) break;
+    }
+
+    console.log(`📦 Large file (${lines.length} lines) — splitting into ${chunks.length} chunks`);
+
+    const allFindings: Finding[] = [];
+
+    for (let idx = 0; idx < chunks.length; idx++) {
+      const chunk = chunks[idx];
+      console.log(`  ▶ Chunk ${idx + 1}/${chunks.length} (lines ${chunk.startLine}–${chunk.startLine + chunk.content.split('\n').length - 1})`);
+
+      try {
+        const chunkRequest: AnalysisRequest = {
+          ...request,
+          content: chunk.content
+        };
+        const result = await this.provider!.analyze(chunkRequest);
+
+        // Adjust line numbers to be relative to the full file
+        for (const finding of result.findings) {
+          finding.line = (finding.line || 1) + chunk.startLine - 1;
+          allFindings.push(finding);
+        }
+      } catch (err: any) {
+        console.warn(`  ⚠ Chunk ${idx + 1} failed: ${err.message}`);
+        // Continue with other chunks
+      }
+    }
+
+    // Deduplicate findings by (line, title)
+    const seen = new Set<string>();
+    const uniqueFindings = allFindings.filter(f => {
+      const key = `${f.line}:${f.title || f.id}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+
+    const summary = {
+      totalIssues: uniqueFindings.length,
+      high: uniqueFindings.filter(f => f.severity === 'HIGH').length,
+      medium: uniqueFindings.filter(f => f.severity === 'MEDIUM').length,
+      low: uniqueFindings.filter(f => f.severity === 'LOW').length,
+      info: uniqueFindings.filter(f => f.severity === 'INFO').length
+    };
+
+    const analysisTime = Date.now() - startTime;
+    console.log(`✅ Chunked analysis complete: ${uniqueFindings.length} issues in ${analysisTime}ms`);
+
+    return {
+      filePath: request.filePath,
+      findings: uniqueFindings,
+      summary,
+      analysisTime
+    };
   }
 
   async analyzeBatch(requests: AnalysisRequest[]): Promise<AnalysisResult[]> {

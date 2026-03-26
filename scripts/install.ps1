@@ -1,132 +1,88 @@
 ﻿# Code Guardrail - Installation Script (Windows PowerShell)
 # ==========================================================
+# Run from the repo root:  .\scripts\install.ps1
+
+param(
+    [switch]$SkipService,
+    [switch]$SkipExtension
+)
 
 $ErrorActionPreference = "Stop"
+$root = Split-Path -Parent (Split-Path -Parent $PSCommandPath)
+Push-Location $root
 
-Write-Host "[Guardrail] Code Guardrail Installation Script" -ForegroundColor Cyan
-Write-Host "======================================" -ForegroundColor Cyan
-Write-Host ""
+Write-Host "`n  Code Guardrail - Installer`n  =========================" -ForegroundColor Cyan
 
-# Check prerequisites
-Write-Host "Checking prerequisites..." -ForegroundColor Yellow
+# ── Prerequisites ──
+Write-Host "`n[1/5] Checking prerequisites..." -ForegroundColor Yellow
 
-# Check Node.js
-try {
-    $nodeVersion = node -v
-    $versionNumber = [int]($nodeVersion -replace 'v|\..*', '')
-    
-    if ($versionNumber -lt 18) {
-        Write-Host "[ERROR] Node.js version must be 18 or higher (current: $nodeVersion)" -ForegroundColor Red
-        exit 1
+$nodeVersion = $null
+try { $nodeVersion = node -v } catch {}
+if (-not $nodeVersion) { Write-Host "  ERROR: Node.js not found. Install from https://nodejs.org/" -ForegroundColor Red; exit 1 }
+
+$major = [int]($nodeVersion -replace 'v(\d+)\..*', '$1')
+if ($major -lt 18) { Write-Host "  ERROR: Node.js 18+ required (found $nodeVersion)" -ForegroundColor Red; exit 1 }
+Write-Host "  Node.js $nodeVersion  npm $(npm -v)" -ForegroundColor Green
+
+$hasCode = $false
+try { $null = code --version 2>$null; $hasCode = $true } catch {}
+if ($hasCode) { Write-Host "  VS Code CLI available" -ForegroundColor Green }
+else          { Write-Host "  VS Code CLI not found (manual VSIX install)" -ForegroundColor Yellow }
+
+# ── Service ──
+if (-not $SkipService) {
+    Write-Host "`n[2/5] Installing service..." -ForegroundColor Yellow
+    Push-Location service
+    npm install --loglevel=error 2>&1 | Out-Null
+    npm run build  2>&1 | Out-Null
+    Write-Host "  Service built OK" -ForegroundColor Green
+    Pop-Location
+} else { Write-Host "`n[2/5] Skipping service (flag)" -ForegroundColor Gray }
+
+# ── Extension ──
+if (-not $SkipExtension) {
+    Write-Host "`n[3/5] Installing extension..." -ForegroundColor Yellow
+    Push-Location extension
+    npm install --loglevel=error 2>&1 | Out-Null
+    npm run compile 2>&1 | Out-Null
+    Write-Host "  Extension compiled OK" -ForegroundColor Green
+    Pop-Location
+} else { Write-Host "`n[3/5] Skipping extension (flag)" -ForegroundColor Gray }
+
+# ── Package VSIX ──
+if (-not $SkipExtension) {
+    Write-Host "`n[4/5] Packaging VSIX..." -ForegroundColor Yellow
+    Push-Location extension
+    npm run package 2>&1 | Out-Null
+    $vsix = Get-ChildItem -Filter "*.vsix" | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+    if ($vsix) {
+        Write-Host "  Created $($vsix.Name)" -ForegroundColor Green
+        if ($hasCode) {
+            Write-Host "  Installing into VS Code..." -ForegroundColor Gray
+            code --install-extension $vsix.Name --force 2>&1 | Out-Null
+            Write-Host "  Extension installed" -ForegroundColor Green
+        }
+    } else {
+        Write-Host "  WARNING: VSIX not created" -ForegroundColor Yellow
     }
-    Write-Host "[OK] Node.js $nodeVersion" -ForegroundColor Green
-}
-catch {
-    Write-Host "[ERROR] Node.js is not installed" -ForegroundColor Red
-    Write-Host "Please install Node.js 18+ from https://nodejs.org/" -ForegroundColor Yellow
-    exit 1
-}
+    Pop-Location
+} else { Write-Host "`n[4/5] Skipping package" -ForegroundColor Gray }
 
-# Check npm
-try {
-    $npmVersion = npm -v
-    Write-Host "[OK] npm $npmVersion" -ForegroundColor Green
-}
-catch {
-    Write-Host "[ERROR] npm is not installed" -ForegroundColor Red
-    exit 1
-}
+# ── Done ──
+Write-Host "`n[5/5] Done!" -ForegroundColor Green
+Write-Host @"
 
-# Check VS Code
-$hasVSCode = $false
-try {
-    $codeVersion = (code --version)[0]
-    Write-Host "[OK] VS Code $codeVersion" -ForegroundColor Green
-    $hasVSCode = $true
-}
-catch {
-    Write-Host "[WARN] VS Code CLI not found (extension installation will be manual)" -ForegroundColor Yellow
-}
+  Quick Start
+  -----------
+  1. Start the service:   cd service && npm start
+  2. Open VS Code, run command:  Code Guardrail: Show Menu
+  3. Change scan mode:    Code Guardrail: Toggle Scan Mode
 
-Write-Host ""
+  Scan Modes (Settings > Code Guardrail)
+  - manual     : Scan only when you run a command (default)
+  - realtime   : Scan on every save / open
+  - scheduled  : Scan all open files at an interval (default 15 min)
 
-# Install service
-Write-Host "Installing Guardrail Service..." -ForegroundColor Cyan
-Set-Location service
+"@ -ForegroundColor Cyan
 
-if (Test-Path ".env") {
-    Write-Host "  .env file already exists, skipping..." -ForegroundColor Gray
-}
-else {
-    Write-Host "  Creating .env file from template..." -ForegroundColor Gray
-    Copy-Item .env.example .env
-}
-
-Write-Host "  Installing dependencies..." -ForegroundColor Gray
-npm install | Out-Null
-
-Write-Host "  Building TypeScript..." -ForegroundColor Gray
-npm run build | Out-Null
-
-Write-Host "[OK] Service installed successfully" -ForegroundColor Green
-Write-Host ""
-
-# Install extension
-Write-Host "Installing VS Code Extension..." -ForegroundColor Cyan
-Set-Location ../extension
-
-Write-Host "  Installing dependencies..." -ForegroundColor Gray
-npm install | Out-Null
-
-Write-Host "  Compiling TypeScript..." -ForegroundColor Gray
-npm run compile | Out-Null
-
-Write-Host "  Packaging extension..." -ForegroundColor Gray
-npm run package | Out-Null
-
-$vsixFile = (Get-ChildItem -Filter "*.vsix" | Select-Object -First 1).Name
-
-if ($hasVSCode) {
-    Write-Host "  Installing extension in VS Code..." -ForegroundColor Gray
-    code --install-extension $vsixFile --force | Out-Null
-    Write-Host "[OK] Extension installed successfully" -ForegroundColor Green
-}
-else {
-    Write-Host "[WARN] Manual installation required:" -ForegroundColor Yellow
-    Write-Host "  1. Open VS Code" -ForegroundColor Gray
-    Write-Host "  2. Go to Extensions view (Ctrl+Shift+X)" -ForegroundColor Gray
-    Write-Host "  3. Click '...' menu -> Install from VSIX" -ForegroundColor Gray
-    Write-Host "  4. Select: $(Get-Location)\$vsixFile" -ForegroundColor Gray
-}
-
-Set-Location ..
-
-Write-Host ""
-Write-Host "===============================================" -ForegroundColor Green
-Write-Host "[OK] Installation Complete!" -ForegroundColor Green
-Write-Host "===============================================" -ForegroundColor Green
-Write-Host ""
-Write-Host "Next Steps:" -ForegroundColor Cyan
-Write-Host ""
-Write-Host "1. Start the service:" -ForegroundColor Yellow
-Write-Host "   cd service" -ForegroundColor Gray
-Write-Host "   npm start" -ForegroundColor Gray
-Write-Host ""
-Write-Host "2. Open VS Code and save any file to trigger analysis" -ForegroundColor Yellow
-Write-Host ""
-Write-Host "3. Or manually analyze with Ctrl+Shift+G" -ForegroundColor Yellow
-Write-Host ""
-Write-Host "Documentation:" -ForegroundColor Cyan
-Write-Host "  - Main README: README.md" -ForegroundColor Gray
-Write-Host "  - Service docs: service\README.md" -ForegroundColor Gray
-Write-Host "  - Extension docs: extension\README.md" -ForegroundColor Gray
-Write-Host "  - Governance rules: governance\README.md" -ForegroundColor Gray
-Write-Host ""
-Write-Host "Configuration:" -ForegroundColor Cyan
-Write-Host "  - Service: service\.env" -ForegroundColor Gray
-Write-Host "  - VS Code: File -> Preferences -> Settings -> Code Guardrail" -ForegroundColor Gray
-Write-Host ""
-Write-Host "Tip: The service must be running for the extension to work." -ForegroundColor Yellow
-Write-Host "    Use Code Guardrail: Start Local Service from command palette." -ForegroundColor Gray
-Write-Host ""
-Write-Host "Happy coding!" -ForegroundColor Cyan
+Pop-Location

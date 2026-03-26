@@ -39,11 +39,15 @@ const path = __importStar(require("path"));
 const fs = __importStar(require("fs"));
 const child_process_1 = require("child_process");
 class ServiceManager {
+    get servicePort() {
+        return vscode.workspace.getConfiguration('codeGuardrail').get('servicePort', 3000);
+    }
+    get serviceHost() {
+        return `http://localhost:${this.servicePort}`;
+    }
     constructor(context) {
         this.context = context;
         this.serviceProcess = null;
-        this.servicePort = 3000;
-        this.serviceHost = 'http://localhost:3000';
         this.isServiceRunning = false;
         this.startupAttempts = 0;
         this.maxStartupAttempts = 3;
@@ -323,7 +327,8 @@ class ServiceManager {
                 env: {
                     ...process.env,
                     NODE_ENV: 'production',
-                    PORT: this.servicePort.toString()
+                    PORT: this.servicePort.toString(),
+                    COPILOT_MODEL: vscode.workspace.getConfiguration('codeGuardrail').get('model', 'gpt-4')
                 }
             });
             // Handle spawn errors (e.g., node not found)
@@ -360,7 +365,19 @@ class ServiceManager {
                 this.isServiceRunning = false;
                 this.serviceProcess = null;
                 if (code !== 0 && code !== null) {
-                    vscode.window.showWarningMessage('Guardrail service stopped unexpectedly. Falling back to local scanning.');
+                    vscode.window.showWarningMessage('Guardrail service stopped unexpectedly. Attempting to restart...');
+                    // Self-healing: try to restart the service up to maxStartupAttempts
+                    if (this.startupAttempts < this.maxStartupAttempts) {
+                        setTimeout(() => {
+                            this.startService(servicePath);
+                        }, 2000);
+                    }
+                    else {
+                        vscode.window.showErrorMessage('Guardrail service failed to restart. Falling back to local scanning.');
+                        resolve(false);
+                    }
+                }
+                else {
                     resolve(false);
                 }
             });

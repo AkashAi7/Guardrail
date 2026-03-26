@@ -5,8 +5,12 @@ import { spawn, ChildProcess } from 'child_process';
 
 export class ServiceManager {
     private serviceProcess: ChildProcess | null = null;
-    private readonly servicePort = 3000;
-    private readonly serviceHost = 'http://localhost:3000';
+    private get servicePort(): number {
+        return vscode.workspace.getConfiguration('codeGuardrail').get<number>('servicePort', 3000);
+    }
+    private get serviceHost(): string {
+        return `http://localhost:${this.servicePort}`;
+    }
     private isServiceRunning = false;
     private startupAttempts = 0;
     private readonly maxStartupAttempts = 3;
@@ -335,7 +339,8 @@ export class ServiceManager {
                 env: {
                     ...process.env,
                     NODE_ENV: 'production',
-                    PORT: this.servicePort.toString()
+                    PORT: this.servicePort.toString(),
+                    COPILOT_MODEL: vscode.workspace.getConfiguration('codeGuardrail').get<string>('model', 'gpt-4')
                 }
             });
 
@@ -380,8 +385,19 @@ export class ServiceManager {
                 
                 if (code !== 0 && code !== null) {
                     vscode.window.showWarningMessage(
-                        'Guardrail service stopped unexpectedly. Falling back to local scanning.'
+                        'Guardrail service stopped unexpectedly. Attempting to restart...'
                     );
+                    
+                    // Self-healing: try to restart the service up to maxStartupAttempts
+                    if (this.startupAttempts < this.maxStartupAttempts) {
+                        setTimeout(() => {
+                            this.startService(servicePath);
+                        }, 2000);
+                    } else {
+                        vscode.window.showErrorMessage('Guardrail service failed to restart. Falling back to local scanning.');
+                        resolve(false);
+                    }
+                } else {
                     resolve(false);
                 }
             });

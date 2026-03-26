@@ -32,6 +32,48 @@
   ],
   "main": "./out/extension.js",
   "contributes": {
+    "configuration": {
+      "title": "Code Guardrail",
+      "properties": {
+        "codeGuardrail.scanMode": {
+          "type": "string",
+          "enum": [
+            "realtime",
+            "manual",
+            "scheduled"
+          ],
+          "default": "manual",
+          "description": "Controls when files are scanned.\n- realtime: Analyze on every save and open.\n- manual: Only scan when you run a command.\n- scheduled: Scan open files at a regular interval."
+        },
+        "codeGuardrail.analyzeOnSave": {
+          "type": "boolean",
+          "default": false,
+          "description": "Analyze files automatically when saved (only applies in realtime mode)."
+        },
+        "codeGuardrail.analyzeOnOpen": {
+          "type": "boolean",
+          "default": false,
+          "description": "Analyze files automatically when opened (only applies in realtime mode)."
+        },
+        "codeGuardrail.scheduledIntervalMinutes": {
+          "type": "number",
+          "default": 15,
+          "minimum": 1,
+          "maximum": 1440,
+          "description": "Interval in minutes between scheduled scans (only in scheduled mode)."
+        },
+        "codeGuardrail.servicePort": {
+          "type": "number",
+          "default": 3000,
+          "description": "Port for the Guardrail backend service."
+        },
+        "codeGuardrail.model": {
+          "type": "string",
+          "default": "gpt-4",
+          "description": "Model to use for AI analysis (e.g. gpt-4, gpt-4o, gpt-3.5-turbo)"
+        }
+      }
+    },
     "commands": [
       {
         "command": "codeGuardrail.analyzeFile",
@@ -56,6 +98,10 @@
       {
         "command": "codeGuardrail.importRules",
         "title": "Code Guardrail: Import Rules from File"
+      },
+      {
+        "command": "codeGuardrail.uploadRuleFile",
+        "title": "Code Guardrail: Upload Rule File"
       },
       {
         "command": "codeGuardrail.importRulesFromUrl",
@@ -88,21 +134,30 @@
       {
         "command": "codeGuardrail.clearComplianceDocuments",
         "title": "Code Guardrail: Clear All Compliance Documents"
-      }
+      },
+      {
+        "command": "codeGuardrail.toggleScanMode",
+        "title": "Code Guardrail: Toggle Scan Mode"      },
+      {
+        "command": "codeGuardrail.chooseModel",
+        "title": "Code Guardrail: Choose AI Model"      }
     ]
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",
     "compile": "tsc -p ./",
-    "watch": "tsc -watch -p ./"
+    "watch": "tsc -watch -p ./",
+    "package": "npx @vscode/vsce package --no-dependencies --allow-package-secrets github"
   },
   "devDependencies": {
     "@types/node": "20.x",
     "@types/vscode": "^1.80.0",
+    "@vscode/vsce": "^3.0.0",
     "typescript": "^5.1.6"
   },
   "dependencies": {
     "mammoth": "^1.11.0",
-    "pdf-parse": "^2.4.5"
+    "pdf-parse": "^2.4.5",
+    "word-extractor": "^1.0.4"
   }
 }
