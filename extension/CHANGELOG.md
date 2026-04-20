@@ -2,6 +2,16 @@
 
 All notable changes to the "Code Guardrail" extension will be documented in this file.
 
+## [0.8.2] - 2026-04-20
+
+### Fixed
+- Handle `EADDRINUSE` startup conflicts by reconnecting to an existing healthy Guardrail service when possible and showing a precise port-conflict message otherwise.
+- Replace the stale Node.js warning so startup errors now report the real Node.js 24+ requirement and detected version.
+
+### Improved
+- Speed up workspace scans by excluding generated output folders such as `out`, `dist`, `build`, and `bundled-service`.
+- Batch project scan requests through `/analyze-batch` instead of sending one serial AI request per file.
+
 ## [0.8.1] - 2026-04-20
 
 ### Fixed
