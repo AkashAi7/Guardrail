@@ -2,6 +2,17 @@
 
 All notable changes to the "Code Guardrail" extension will be documented in this file.
 
+## [0.8.3] - 2026-04-20
+
+### Fixed
+- Eliminate project scan request timeouts caused by large files spawning many serial AI calls.
+
+### Improved
+- Analyze chunks of a large file in parallel (bounded) instead of one-by-one, so big files no longer stall scans.
+- Larger analysis chunks (200 lines with 10-line overlap) cut the number of AI calls per file by roughly 3x.
+- In-memory result cache keyed by file content, so re-scanning unchanged files is instant.
+- Skip empty and trivially small files instead of sending them to the model.
+
 ## [0.8.2] - 2026-04-20
 
 ### Fixed

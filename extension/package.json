@@ -2,7 +2,7 @@
   "name": "code-guardrail",
   "displayName": "Code Guardrail",
   "description": "AI-powered security & compliance scanner using GitHub Copilot SDK intelligence",
-  "version": "0.8.2",
+  "version": "0.8.3",
   "publisher": "AkashAi7",
   "icon": "icon.png",
   "repository": {

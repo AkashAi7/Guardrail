@@ -7,6 +7,9 @@ import type { AnalysisRequest, AnalysisResult, Finding } from './types/index.js'
 import { GovernanceLoader } from './governance-loader.js';
 import { ProviderFactory } from './providers/provider-factory.js';
 import type { LLMProvider, ProviderConfig } from './providers/base-provider.js';
+import { createHash } from 'node:crypto';
+
+const CACHE_SIZE_LIMIT = 500;
 
 export class HybridGuardrailAgent {
   private provider: LLMProvider | null = null;
@@ -15,6 +18,7 @@ export class HybridGuardrailAgent {
   private isInitialized: boolean = false;
   private complianceContext: Map<string, string> = new Map(); // Store uploaded compliance docs
   private baseGovernanceRules: string = ''; // Store original rules before enhancements
+  private analysisCache: Map<string, AnalysisResult> = new Map();
 
   constructor(
     private governancePath: string,
@@ -61,20 +65,43 @@ export class HybridGuardrailAgent {
       throw new Error('Agent not initialized. Call initialize() first.');
     }
 
-    const lines = request.content.split('\n');
-    const LINE_THRESHOLD = 80; // chunk files larger than this
+    const content = request.content ?? '';
+    const trimmedContent = content.trim();
+
+    // Fast path: empty or trivially small files have nothing meaningful to analyze
+    if (!trimmedContent || trimmedContent.length < 5) {
+      return {
+        filePath: request.filePath,
+        findings: [],
+        summary: { totalIssues: 0, high: 0, medium: 0, low: 0, info: 0 },
+        analysisTime: 0
+      };
+    }
+
+    const cacheKey = this.buildCacheKey(request);
+    const cached = this.analysisCache.get(cacheKey);
+    if (cached) {
+      console.log(`♻️  Cache hit: ${request.filePath} (${cached.summary.totalIssues} issues)`);
+      return { ...cached, filePath: request.filePath };
+    }
+
+    const lines = content.split('\n');
+    const LINE_THRESHOLD = 200; // chunk only larger files; fewer LLM calls per file
 
     console.log(`\n🔍 Analyzing: ${request.filePath} (${request.language}, ${lines.length} lines)`);
 
     try {
+      let result: AnalysisResult;
+
       if (lines.length > LINE_THRESHOLD) {
-        return await this.analyzeInChunks(request, lines);
+        result = await this.analyzeInChunks(request, lines);
+      } else {
+        // Small file — single-pass analysis
+        result = await this.provider.analyze(request);
+        console.log(`✅ Analysis complete: ${result.summary.totalIssues} issues found`);
       }
 
-      // Small file — single-pass analysis
-      const result = await this.provider.analyze(request);
-
-      console.log(`✅ Analysis complete: ${result.summary.totalIssues} issues found`);
+      this.storeInCache(cacheKey, result);
       return result;
 
     } catch (error: any) {
@@ -104,8 +131,9 @@ export class HybridGuardrailAgent {
     request: AnalysisRequest,
     lines: string[]
   ): Promise<AnalysisResult> {
-    const CHUNK_SIZE = 70;    // lines per chunk
-    const OVERLAP = 5;        // overlapping lines for context continuity
+    const CHUNK_SIZE = 200;   // larger chunks → far fewer LLM calls per file
+    const OVERLAP = 10;       // overlapping lines for context continuity
+    const CHUNK_CONCURRENCY = 3; // parallel chunks per file, bounded to avoid overloading the provider
     const startTime = Date.now();
 
     // Build chunks
@@ -119,29 +147,38 @@ export class HybridGuardrailAgent {
       if (end >= lines.length) break;
     }
 
-    console.log(`📦 Large file (${lines.length} lines) — splitting into ${chunks.length} chunks`);
+    console.log(`📦 Large file (${lines.length} lines) — ${chunks.length} chunks, concurrency ${CHUNK_CONCURRENCY}`);
 
     const allFindings: Finding[] = [];
 
-    for (let idx = 0; idx < chunks.length; idx++) {
-      const chunk = chunks[idx];
-      console.log(`  ▶ Chunk ${idx + 1}/${chunks.length} (lines ${chunk.startLine}–${chunk.startLine + chunk.content.split('\n').length - 1})`);
-
+    const analyzeChunk = async (
+      chunk: { content: string; startLine: number },
+      idx: number
+    ): Promise<Finding[]> => {
       try {
         const chunkRequest: AnalysisRequest = {
           ...request,
           content: chunk.content
         };
         const result = await this.provider!.analyze(chunkRequest);
-
-        // Adjust line numbers to be relative to the full file
-        for (const finding of result.findings) {
-          finding.line = (finding.line || 1) + chunk.startLine - 1;
-          allFindings.push(finding);
-        }
+        return result.findings.map(finding => ({
+          ...finding,
+          line: (finding.line || 1) + chunk.startLine - 1
+        }));
       } catch (err: any) {
-        console.warn(`  ⚠ Chunk ${idx + 1} failed: ${err.message}`);
-        // Continue with other chunks
+        console.warn(`  ⚠ Chunk ${idx + 1}/${chunks.length} failed: ${err.message}`);
+        return [];
+      }
+    };
+
+    // Process chunks in bounded parallel waves so we don't overload the provider
+    for (let wave = 0; wave < chunks.length; wave += CHUNK_CONCURRENCY) {
+      const slice = chunks.slice(wave, wave + CHUNK_CONCURRENCY);
+      const waveResults = await Promise.all(
+        slice.map((chunk, offset) => analyzeChunk(chunk, wave + offset))
+      );
+      for (const findings of waveResults) {
+        allFindings.push(...findings);
       }
     }
 
@@ -204,6 +241,7 @@ export class HybridGuardrailAgent {
     await this.governanceLoader.reload();
     this.baseGovernanceRules = this.governanceLoader.getSystemPrompt();
     await this.reloadGovernanceWithContext();
+    this.analysisCache.clear();
     console.log(`✅ Reloaded ${this.governanceRules.length} characters of governance rules`);
   }
 
@@ -270,6 +308,7 @@ export class HybridGuardrailAgent {
     if (this.provider && 'setGovernanceRules' in this.provider) {
       (this.provider as any).setGovernanceRules(this.governanceRules);
     }
+    this.analysisCache.clear();
     
     console.log('🧹 Cleared all compliance documents');
   }
@@ -294,7 +333,26 @@ export class HybridGuardrailAgent {
       this.provider = null;
     }
     this.isInitialized = false;
+    this.analysisCache.clear();
     console.log('✅ Agent cleaned up');
+  }
+
+  private buildCacheKey(request: AnalysisRequest): string {
+    const hash = createHash('sha256');
+    hash.update(request.language || '');
+    hash.update('\u0001');
+    hash.update(request.content || '');
+    return `${request.language || 'unknown'}:${hash.digest('hex')}`;
+  }
+
+  private storeInCache(key: string, result: AnalysisResult): void {
+    if (this.analysisCache.size >= CACHE_SIZE_LIMIT) {
+      const oldestKey = this.analysisCache.keys().next().value;
+      if (oldestKey) {
+        this.analysisCache.delete(oldestKey);
+      }
+    }
+    this.analysisCache.set(key, result);
   }
 
   isReady(): boolean {
