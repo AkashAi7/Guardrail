@@ -176,11 +176,13 @@ export function activate(context: vscode.ExtensionContext) {
             });
             return;
         }
+
+        const activeServiceManager = serviceManager;
         
         // Get all files in workspace
         const files = await vscode.workspace.findFiles(
             '**/*.{ts,tsx,js,jsx,py,java,cs,go,rb,php}',
-            '**/node_modules/**'
+            '**/{node_modules,dist,out,build,.git,coverage,.next,bundled-service}/**'
         );
         
         if (files.length === 0) {
@@ -196,31 +198,52 @@ export function activate(context: vscode.ExtensionContext) {
         }, async (progress, token) => {
             let analyzed = 0;
             let totalIssues = 0;
-            
-            for (const fileUri of files) {
+
+            const batchSize = 8;
+
+            for (let batchStart = 0; batchStart < files.length; batchStart += batchSize) {
                 if (token.isCancellationRequested) {
                     break;
                 }
-                
+
+                const fileBatch = files.slice(batchStart, batchStart + batchSize);
+
                 progress.report({
                     message: `${analyzed}/${files.length} files (${totalIssues} issues found)`,
-                    increment: (100 / files.length)
+                    increment: (fileBatch.length / files.length) * 100
                 });
-                
+
                 try {
-                    const document = await vscode.workspace.openTextDocument(fileUri);
-                    await analyzeDocument(document);
-                    
-                    // Count issues for this file
-                    const diagnostics = diagnosticCollection.get(fileUri);
-                    if (diagnostics) {
-                        totalIssues += diagnostics.length;
+                    const documents = await Promise.all(
+                        fileBatch.map(fileUri => vscode.workspace.openTextDocument(fileUri))
+                    );
+
+                    const response = await activeServiceManager.makeRequest('/analyze-batch', {
+                        method: 'POST',
+                        body: {
+                            files: documents.map(document => ({
+                                content: document.getText(),
+                                filePath: document.fileName,
+                                language: document.languageId
+                            }))
+                        },
+                        timeout: Math.max(180000, documents.length * 45000)
+                    });
+
+                    if (response.success && Array.isArray(response.results)) {
+                        for (let index = 0; index < documents.length; index++) {
+                            const document = documents[index];
+                            const result = response.results[index];
+                            const findings = mapBackendFindings(document.getText(), result?.findings || []);
+                            applyFindingsToDocument(document, findings);
+                            totalIssues += findings.length;
+                        }
                     }
                 } catch (error) {
-                    console.error(`Failed to analyze ${fileUri.fsPath}:`, error);
+                    console.error(`Failed to analyze file batch starting at ${batchStart}:`, error);
                 }
-                
-                analyzed++;
+
+                analyzed += fileBatch.length;
             }
             
             progress.report({ message: `Complete: ${analyzed} files, ${totalIssues} issues` });
@@ -1590,25 +1613,7 @@ async function analyzeDocument(document: vscode.TextDocument) {
                 return;
             }
 
-            findings = response.result.findings.map((finding: any) => {
-                // Calculate offsets from line numbers
-                const lines = text.split('\n');
-                let startOffset = 0;
-                for (let i = 0; i < finding.line - 1 && i < lines.length; i++) {
-                    startOffset += lines[i].length + 1; // +1 for newline
-                }
-                const endOffset = startOffset + (finding.snippet?.length || 50);
-                
-                return {
-                    ruleId: `🤖 ${finding.id || 'AI-001'}`,
-                    severity: finding.severity || 'MEDIUM',
-                    message: `${finding.title}: ${finding.description}`,
-                    startOffset: startOffset,
-                    endOffset: endOffset,
-                    category: finding.category?.toLowerCase() || 'security',
-                    quickFix: finding.suggestedFix
-                };
-            });
+            findings = mapBackendFindings(text, response.result.findings);
             
             console.log(`✅ AI analysis complete: ${findings.length} issues found`);
         }
@@ -1621,20 +1626,7 @@ async function analyzeDocument(document: vscode.TextDocument) {
         return;
     }
     
-    const diagnostics: vscode.Diagnostic[] = findings.map(finding => {
-        const startPos = document.positionAt(finding.startOffset);
-        const endPos = document.positionAt(finding.endOffset);
-        const range = new vscode.Range(startPos, endPos);
-        
-        const severity = mapSeverity(finding.severity);
-        const diagnostic = new vscode.Diagnostic(range, finding.message, severity);
-        diagnostic.source = 'Code Guardrail (🤖 AI)';
-        diagnostic.code = finding.ruleId;
-        
-        return diagnostic;
-    });
-    
-    diagnosticCollection.set(document.uri, diagnostics);
+    applyFindingsToDocument(document, findings);
     
     // Update status bar
     if (findings.length > 0) {
@@ -1654,6 +1646,46 @@ async function analyzeDocument(document: vscode.TextDocument) {
     }
 
     refreshSidebar();
+}
+
+function mapBackendFindings(text: string, backendFindings: any[]): Finding[] {
+    return backendFindings.map((finding: any) => {
+        const lines = text.split('\n');
+        let startOffset = 0;
+
+        for (let i = 0; i < finding.line - 1 && i < lines.length; i++) {
+            startOffset += lines[i].length + 1;
+        }
+
+        const endOffset = startOffset + (finding.snippet?.length || 50);
+
+        return {
+            ruleId: `🤖 ${finding.id || 'AI-001'}`,
+            severity: finding.severity || 'MEDIUM',
+            message: `${finding.title}: ${finding.description}`,
+            startOffset,
+            endOffset,
+            category: finding.category?.toLowerCase() || 'security',
+            quickFix: finding.suggestedFix
+        };
+    });
+}
+
+function applyFindingsToDocument(document: vscode.TextDocument, findings: Finding[]): void {
+    const diagnostics: vscode.Diagnostic[] = findings.map(finding => {
+        const startPos = document.positionAt(finding.startOffset);
+        const endPos = document.positionAt(finding.endOffset);
+        const range = new vscode.Range(startPos, endPos);
+
+        const severity = mapSeverity(finding.severity);
+        const diagnostic = new vscode.Diagnostic(range, finding.message, severity);
+        diagnostic.source = 'Code Guardrail (🤖 AI)';
+        diagnostic.code = finding.ruleId;
+
+        return diagnostic;
+    });
+
+    diagnosticCollection.set(document.uri, diagnostics);
 }
 
 function mapSeverity(severity: string): vscode.DiagnosticSeverity {

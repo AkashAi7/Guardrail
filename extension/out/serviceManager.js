@@ -266,11 +266,39 @@ class ServiceManager {
                 method: 'GET',
                 timeout: 2000
             });
-            return response.status === 'ok';
+            return response.status === 'ok' && response.service === 'guardrail-service';
         }
         catch {
             return false;
         }
+    }
+    async waitForHealthyService(timeoutMs = 4000, intervalMs = 500) {
+        const deadline = Date.now() + timeoutMs;
+        while (Date.now() < deadline) {
+            if (await this.checkServiceHealth()) {
+                return true;
+            }
+            await new Promise(resolve => setTimeout(resolve, intervalMs));
+        }
+        return false;
+    }
+    async handleAddressInUse(settle) {
+        const connectedToExistingService = await this.waitForHealthyService();
+        if (connectedToExistingService) {
+            this.isServiceRunning = true;
+            this.lastStartupError = null;
+            vscode.window.showInformationMessage(`Connected to an existing Guardrail AI service on port ${this.servicePort}.`);
+            settle(true);
+            return;
+        }
+        const portConflictMessage = `Port ${this.servicePort} is already in use by another process. Stop the process using that port or change the codeGuardrail.servicePort setting.`;
+        this.lastStartupError = portConflictMessage;
+        vscode.window.showErrorMessage(portConflictMessage, 'Open Settings').then(selection => {
+            if (selection === 'Open Settings') {
+                vscode.commands.executeCommand('workbench.action.openSettings', 'codeGuardrail.servicePort');
+            }
+        });
+        settle(false);
     }
     /**
      * Get service status
@@ -496,6 +524,7 @@ class ServiceManager {
             console.log(`Using node executable: ${nodeExecutable}`);
             const serviceEnv = await this.getServiceEnvironment();
             const errorBuffer = [];
+            let addressInUseDetected = false;
             let settled = false;
             const settle = (value) => {
                 if (!settled) {
@@ -538,11 +567,17 @@ class ServiceManager {
                     errorBuffer.push(error);
                     this.lastStartupError = errorBuffer.slice(-8).join('\n');
                 }
+                if (error.includes('EADDRINUSE') || error.includes('address already in use')) {
+                    addressInUseDetected = true;
+                    void this.handleAddressInUse(settle);
+                    return;
+                }
                 // Check for critical Node.js errors
                 if (error.includes('ERR_UNKNOWN_BUILTIN_MODULE') ||
                     error.includes('node:sqlite') ||
                     error.includes('Cannot find module')) {
-                    vscode.window.showErrorMessage(`Guardrail requires Node.js 22.5.0+. Current Node.js may be outdated.`);
+                    const detectedVersion = this.getInstalledNodeVersion();
+                    vscode.window.showErrorMessage(`Guardrail requires Node.js 24 or newer. Detected ${detectedVersion}. If this version is already new enough, another Node runtime or a startup module mismatch is causing the backend failure.`);
                 }
             });
             // Handle process exit
@@ -550,6 +585,13 @@ class ServiceManager {
                 console.log(`Service exited with code ${code}`);
                 this.isServiceRunning = false;
                 this.serviceProcess = null;
+                if (settled) {
+                    return;
+                }
+                if (addressInUseDetected) {
+                    settle(false);
+                    return;
+                }
                 if (code !== 0 && code !== null) {
                     vscode.window.showWarningMessage('Guardrail service stopped unexpectedly. Attempting to restart...');
                     // Self-healing: try to restart the service up to maxStartupAttempts
@@ -598,19 +640,25 @@ class ServiceManager {
     getNpmExecutable() {
         return process.platform === 'win32' ? 'npm.cmd' : 'npm';
     }
-    validateNodeRuntime() {
+    getInstalledNodeVersion() {
         const nodeExecutable = this.getNodeExecutable();
         const versionResult = (0, child_process_1.spawnSync)(nodeExecutable, ['--version'], {
             encoding: 'utf8',
             shell: false
         });
         if (versionResult.error || versionResult.status !== 0) {
+            return 'unknown';
+        }
+        return (versionResult.stdout || '').trim() || 'unknown';
+    }
+    validateNodeRuntime() {
+        const versionText = this.getInstalledNodeVersion();
+        if (versionText === 'unknown') {
             return {
                 ok: false,
                 message: 'Guardrail AI requires a system Node.js installation (v24 or newer) to run the packaged backend service.'
             };
         }
-        const versionText = (versionResult.stdout || '').trim();
         const versionMatch = versionText.match(/^v?(\d+)\.(\d+)\.(\d+)/);
         if (!versionMatch) {
             return {
