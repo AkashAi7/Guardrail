@@ -5,12 +5,14 @@ import { SecurityScanner, Finding, GuardrailConfig } from './scanner';
 import { parseRulesFromMarkdown, loadRulesFromFolder, generateSampleRulesMarkdown } from './ruleParser';
 import { importRulesFromFile, extractTextFromFile, getSupportedExtensions, generateSampleTextRules } from './fileImporter';
 import { ServiceManager } from './serviceManager';
+import { GuardrailSidebarProvider } from './activityBar';
 
 let diagnosticCollection: vscode.DiagnosticCollection;
 let scanner: SecurityScanner;
 let statusBarItem: vscode.StatusBarItem;
 let serviceManager: ServiceManager | null = null;
 let scheduledScanTimer: ReturnType<typeof setInterval> | null = null;
+let sidebarProvider: GuardrailSidebarProvider | null = null;
 
 const CONFIG_FILE_NAME = '.guardrail.json';
 const RULES_FOLDER_NAME = '.guardrail';
@@ -28,12 +30,78 @@ function getConfig() {
     };
 }
 
+function getIssueCounts(): { totalIssues: number; criticalIssues: number } {
+    let totalIssues = 0;
+    let criticalIssues = 0;
+
+    vscode.workspace.textDocuments.forEach(doc => {
+        const diagnostics = diagnosticCollection.get(doc.uri) || [];
+        totalIssues += diagnostics.length;
+        criticalIssues += diagnostics.filter(diag => diag.severity === vscode.DiagnosticSeverity.Error).length;
+    });
+
+    return { totalIssues, criticalIssues };
+}
+
+function refreshSidebar(): void {
+    sidebarProvider?.refresh();
+}
+
+async function attemptServiceStart(showPromptOnFailure = true): Promise<boolean> {
+    if (!serviceManager) {
+        return false;
+    }
+
+    const started = await serviceManager.start();
+    if (!started && showPromptOnFailure) {
+        const startupError = serviceManager.getLastStartupError();
+        const selection = await vscode.window.showWarningMessage(
+            startupError
+                ? `Guardrail AI service is still unavailable: ${startupError}`
+                : 'Guardrail AI service is still unavailable.',
+            'Configure AI Provider'
+        );
+
+        if (selection === 'Configure AI Provider') {
+            await vscode.commands.executeCommand('codeGuardrail.configureAiProvider');
+        }
+    }
+
+    return started;
+}
+
+async function restartServiceWithPrompt(): Promise<boolean> {
+    if (!serviceManager) {
+        return false;
+    }
+
+    await serviceManager.stop();
+    return attemptServiceStart(true);
+}
+
 export function activate(context: vscode.ExtensionContext) {
     console.log('Code Guardrail activating...');
     
     // Initialize components
     diagnosticCollection = vscode.languages.createDiagnosticCollection('code-guardrail');
     scanner = new SecurityScanner();
+
+    sidebarProvider = new GuardrailSidebarProvider(context.extensionUri, () => {
+        const currentModel = vscode.workspace.getConfiguration('codeGuardrail').get<string>('model', 'gpt-4.1');
+        const { totalIssues, criticalIssues } = getIssueCounts();
+
+        return {
+            serviceStatus: serviceManager?.isRunning() ? 'Running' : 'Stopped',
+            providerLabel: serviceManager?.getProviderDisplayLabel() || 'GitHub Copilot (auto)',
+            scanMode: getConfig().scanMode,
+            model: currentModel,
+            totalIssues,
+            criticalIssues
+        };
+    });
+    context.subscriptions.push(
+        vscode.window.registerWebviewViewProvider(GuardrailSidebarProvider.viewType, sidebarProvider)
+    );
     
     // Initialize and start the backend service
     serviceManager = new ServiceManager(context);
@@ -42,9 +110,27 @@ export function activate(context: vscode.ExtensionContext) {
             console.log('✅ Guardrail AI service is running');
         } else {
             console.log('⚠️ Using local pattern matching only');
+            const startupError = serviceManager?.getLastStartupError();
+            const message = startupError
+                ? `Guardrail AI service could not start: ${startupError}`
+                : 'Guardrail AI service could not start automatically.';
+
+            vscode.window.showWarningMessage(
+                message,
+                'Configure AI Provider',
+                'Retry Start'
+            ).then(async selection => {
+                if (selection === 'Configure AI Provider' && serviceManager) {
+                    await serviceManager.configureProvider();
+                } else if (selection === 'Retry Start' && serviceManager) {
+                    await attemptServiceStart(true);
+                }
+            });
         }
+        refreshSidebar();
     }).catch(error => {
         console.error('Failed to start service:', error);
+        refreshSidebar();
     });
     
     // Load custom rules from workspace
@@ -55,6 +141,7 @@ export function activate(context: vscode.ExtensionContext) {
     statusBarItem.command = 'codeGuardrail.showQuickPick';
     statusBarItem.show();
     updateStatusBarForMode();
+    refreshSidebar();
     
     // Register commands
     const analyzeCmd = vscode.commands.registerCommand('codeGuardrail.analyzeFile', () => {
@@ -78,10 +165,13 @@ export function activate(context: vscode.ExtensionContext) {
         if (!serviceManager || !serviceManager.isRunning()) {
             vscode.window.showErrorMessage(
                 'AI Service not running. Cannot scan project without AI service.',
+                'Configure AI Provider',
                 'Start Service'
-            ).then(selection => {
-                if (selection === 'Start Service' && serviceManager) {
-                    serviceManager.start();
+            ).then(async selection => {
+                if (selection === 'Configure AI Provider' && serviceManager) {
+                    await serviceManager.configureProvider();
+                } else if (selection === 'Start Service' && serviceManager) {
+                    await attemptServiceStart(true);
                 }
             });
             return;
@@ -149,6 +239,8 @@ export function activate(context: vscode.ExtensionContext) {
     
     const clearCmd = vscode.commands.registerCommand('codeGuardrail.clearDiagnostics', () => {
         diagnosticCollection.clear();
+        updateStatusBarForMode();
+        refreshSidebar();
         vscode.window.showInformationMessage('Cleared all Code Guardrail issues');
     });
 
@@ -215,6 +307,21 @@ export function activate(context: vscode.ExtensionContext) {
                 action: 'choose-model'
             },
             {
+                label: '$(key) Configure AI Provider',
+                description: 'Set up Copilot or BYOK credentials for AI analysis',
+                action: 'configure-provider'
+            },
+            {
+                label: '$(play-circle) Start AI Service',
+                description: 'Try to start the Guardrail background service now',
+                action: 'start-service'
+            },
+            {
+                label: '$(debug-restart) Restart AI Service',
+                description: 'Restart the Guardrail background service',
+                action: 'restart-service'
+            },
+            {
                 label: '$(info) About Code Guardrail',
                 description: 'View extension information',
                 action: 'about'
@@ -263,6 +370,15 @@ export function activate(context: vscode.ExtensionContext) {
                 case 'choose-model':
                     vscode.commands.executeCommand('codeGuardrail.chooseModel');
                     break;
+                case 'configure-provider':
+                    vscode.commands.executeCommand('codeGuardrail.configureAiProvider');
+                    break;
+                case 'start-service':
+                    vscode.commands.executeCommand('codeGuardrail.startService');
+                    break;
+                case 'restart-service':
+                    vscode.commands.executeCommand('codeGuardrail.restartService');
+                    break;
                 case 'about':
                     const builtInCount = scanner.getBuiltInRuleIds().length;
                     const categories = scanner.getCategories();
@@ -291,6 +407,7 @@ export function activate(context: vscode.ExtensionContext) {
                 analyzeDocument(doc);
             }
         });
+        refreshSidebar();
         vscode.window.showInformationMessage('Code Guardrail rules reloaded');
     });
 
@@ -1129,6 +1246,7 @@ const apiKey = process.env.COMPANY_API_KEY;
         if (e.affectsConfiguration('codeGuardrail')) {
             setupScheduledScan();
             updateStatusBarForMode();
+            refreshSidebar();
         }
     });
     
@@ -1154,20 +1272,82 @@ const apiKey = process.env.COMPANY_API_KEY;
     
     // Choose model command
     const chooseModelCmd = vscode.commands.registerCommand('codeGuardrail.chooseModel', async () => {
-        const models = ['gpt-4', 'gpt-4o', 'gpt-3.5-turbo'];
-        let currentModel = vscode.workspace.getConfiguration('codeGuardrail').get<string>('model', 'gpt-4');
-        const selected = await vscode.window.showQuickPick(models, {
-            placeHolder: `Select AI model (current: ${currentModel})`
+        const modelOptions = [
+            {
+                label: 'gpt-4.1',
+                description: 'Recommended default for GitHub Copilot-backed analysis'
+            },
+            {
+                label: 'gpt-4o',
+                description: 'Balanced Copilot model option'
+            },
+            {
+                label: 'gpt-5',
+                description: 'Use when your Copilot environment exposes GPT-5'
+            },
+            {
+                label: 'claude-sonnet-4.5',
+                description: 'Alternative Copilot model family when available'
+            },
+            {
+                label: 'Custom...',
+                description: 'Enter a Copilot-accessible model name manually'
+            }
+        ];
+        const currentModel = vscode.workspace.getConfiguration('codeGuardrail').get<string>('model', 'gpt-4.1');
+        const selected = await vscode.window.showQuickPick(modelOptions, {
+            placeHolder: `Select the default GitHub Copilot model (current: ${currentModel})`
         });
         
         if (selected) {
-            await vscode.workspace.getConfiguration('codeGuardrail').update('model', selected, vscode.ConfigurationTarget.Global);
-            vscode.window.showInformationMessage(`Model updated to ${selected}. Restarting service...`);
-            if (serviceManager) {
-                await serviceManager.stop();
-                serviceManager.start();
+            let modelName = selected.label;
+
+            if (selected.label === 'Custom...') {
+                const customModel = await vscode.window.showInputBox({
+                    prompt: 'Enter the default GitHub Copilot model name',
+                    value: currentModel,
+                    ignoreFocusOut: true,
+                    validateInput: value => value.trim().length === 0 ? 'Model name is required.' : undefined
+                });
+
+                if (!customModel) {
+                    return;
+                }
+
+                modelName = customModel.trim();
+            }
+
+            await vscode.workspace.getConfiguration('codeGuardrail').update('model', modelName, vscode.ConfigurationTarget.Global);
+            refreshSidebar();
+            vscode.window.showInformationMessage(`Default Copilot model updated to ${modelName}. Restarting service...`);
+            await restartServiceWithPrompt();
+        }
+    });
+
+    const configureAiProviderCmd = vscode.commands.registerCommand('codeGuardrail.configureAiProvider', async () => {
+        if (!serviceManager) {
+            vscode.window.showErrorMessage('Guardrail AI service manager is not initialized.');
+            return;
+        }
+
+        const started = await serviceManager.configureProvider();
+        if (!started) {
+            const startupError = serviceManager.getLastStartupError();
+            if (startupError) {
+                vscode.window.showWarningMessage(`Provider settings were updated, but the service is still unavailable: ${startupError}`);
             }
         }
+        refreshSidebar();
+    });
+
+    const startServiceCmd = vscode.commands.registerCommand('codeGuardrail.startService', async () => {
+        await attemptServiceStart(true);
+        refreshSidebar();
+    });
+
+    const restartServiceCmd = vscode.commands.registerCommand('codeGuardrail.restartService', async () => {
+        await restartServiceWithPrompt();
+        refreshSidebar();
     });
     
     // Analyze currently open file only in realtime mode
@@ -1197,6 +1377,9 @@ const apiKey = process.env.COMPANY_API_KEY;
         clearComplianceDocumentsCmd,
         toggleScanModeCmd,
         chooseModelCmd,
+        configureAiProviderCmd,
+        startServiceCmd,
+        restartServiceCmd,
         onSave,
         onOpen,
         onConfigChange
@@ -1204,11 +1387,13 @@ const apiKey = process.env.COMPANY_API_KEY;
     
     // Show welcome message with clear next steps
     const builtInRuleCount = scanner.getBuiltInRuleIds().length;
-    const message = `Code Guardrail is ready! ${builtInRuleCount} built-in security rules active. No setup required - just start coding!`;
-    vscode.window.showInformationMessage(message, 'Test with Sample', 'View Rules')
+    const message = `Code Guardrail is ready! ${builtInRuleCount} built-in rules are active now. Configure AI only if you want Copilot or BYOK analysis.`;
+    vscode.window.showInformationMessage(message, 'Test with Sample', 'Setup AI', 'View Rules')
         .then(selection => {
             if (selection === 'Test with Sample') {
                 createSampleTestFile();
+            } else if (selection === 'Setup AI') {
+                vscode.commands.executeCommand('codeGuardrail.configureAiProvider');
             } else if (selection === 'View Rules') {
                 vscode.commands.executeCommand('codeGuardrail.initConfig');
             }
@@ -1338,6 +1523,7 @@ function updateStatusBarForMode(): void {
     const modeLabel = mode === 'realtime' ? 'RT' : mode === 'scheduled' ? 'Sched' : 'Manual';
     statusBarItem.text = `$(shield-check) Guardrail [${modeLabel}]`;
     statusBarItem.tooltip = `Code Guardrail - Mode: ${mode}. Click for options.`;
+    statusBarItem.backgroundColor = undefined;
 }
 
 async function analyzeDocument(document: vscode.TextDocument) {
@@ -1348,15 +1534,19 @@ async function analyzeDocument(document: vscode.TextDocument) {
     if (!serviceManager || !serviceManager.isRunning()) {
         vscode.window.showErrorMessage(
             '❌ AI Service not running. Code Guardrail requires the AI service to analyze code.',
+            'Configure AI Provider',
             'Retry Starting Service'
-        ).then(selection => {
-            if (selection === 'Retry Starting Service' && serviceManager) {
-                serviceManager.start();
+        ).then(async selection => {
+            if (selection === 'Configure AI Provider' && serviceManager) {
+                await serviceManager.configureProvider();
+            } else if (selection === 'Retry Starting Service' && serviceManager) {
+                await attemptServiceStart(true);
             }
         });
         statusBarItem.text = '$(alert) Guardrail: AI Service Required';
         statusBarItem.backgroundColor = new vscode.ThemeColor('statusBarItem.errorBackground');
         statusBarItem.tooltip = 'AI service must be running for analysis. Click to retry.';
+        refreshSidebar();
         return;
     }
 
@@ -1390,12 +1580,13 @@ async function analyzeDocument(document: vscode.TextDocument) {
                     'Restart Service'
                 ).then(selection => {
                     if (selection === 'Restart Service' && serviceManager) {
-                        serviceManager.stop().then(() => serviceManager!.start());
+                        restartServiceWithPrompt();
                     }
                 });
                 statusBarItem.text = '$(warning) Guardrail: Analysis Timeout';
                 statusBarItem.backgroundColor = new vscode.ThemeColor('statusBarItem.warningBackground');
                 statusBarItem.tooltip = response.result.error;
+                refreshSidebar();
                 return;
             }
 
@@ -1426,6 +1617,7 @@ async function analyzeDocument(document: vscode.TextDocument) {
         vscode.window.showErrorMessage(`AI analysis failed: ${error.message}`);
         statusBarItem.text = '$(alert) Guardrail: Analysis Failed';
         statusBarItem.backgroundColor = new vscode.ThemeColor('statusBarItem.errorBackground');
+        refreshSidebar();
         return;
     }
     
@@ -1460,6 +1652,8 @@ async function analyzeDocument(document: vscode.TextDocument) {
         statusBarItem.backgroundColor = undefined;
         statusBarItem.tooltip = 'AI analysis - No issues found. Click for options.';
     }
+
+    refreshSidebar();
 }
 
 function mapSeverity(severity: string): vscode.DiagnosticSeverity {

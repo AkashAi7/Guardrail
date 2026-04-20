@@ -2,7 +2,7 @@
   "name": "code-guardrail",
   "displayName": "Code Guardrail",
   "description": "AI-powered security & compliance scanner using GitHub Copilot SDK intelligence",
-  "version": "0.8.0",
+  "version": "0.8.1",
   "publisher": "AkashAi7",
   "icon": "icon.png",
   "repository": {
@@ -28,10 +28,29 @@
     "secrets"
   ],
   "activationEvents": [
-    "onStartupFinished"
+    "onStartupFinished",
+    "onView:codeGuardrail.dashboardView"
   ],
   "main": "./out/extension.js",
   "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "codeGuardrail",
+          "title": "Guardrail",
+          "icon": "icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "codeGuardrail": [
+        {
+          "id": "codeGuardrail.dashboardView",
+          "name": "Control Center",
+          "type": "webview"
+        }
+      ]
+    },
     "configuration": {
       "title": "Code Guardrail",
       "properties": {
@@ -69,8 +88,8 @@
         },
         "codeGuardrail.model": {
           "type": "string",
-          "default": "gpt-4",
-          "description": "Model to use for AI analysis (e.g. gpt-4, gpt-4o, gpt-3.5-turbo)"
+          "default": "gpt-4.1",
+          "description": "Default GitHub Copilot model for AI analysis. Used when provider mode is Auto or Copilot. External providers can override their own model during provider setup."
         }
       }
     },
@@ -137,17 +156,32 @@
       },
       {
         "command": "codeGuardrail.toggleScanMode",
-        "title": "Code Guardrail: Toggle Scan Mode"      },
+        "title": "Code Guardrail: Toggle Scan Mode"
+      },
       {
         "command": "codeGuardrail.chooseModel",
-        "title": "Code Guardrail: Choose AI Model"      }
+        "title": "Code Guardrail: Choose AI Model"
+      },
+      {
+        "command": "codeGuardrail.configureAiProvider",
+        "title": "Code Guardrail: Configure AI Provider"
+      },
+      {
+        "command": "codeGuardrail.startService",
+        "title": "Code Guardrail: Start AI Service"
+      },
+      {
+        "command": "codeGuardrail.restartService",
+        "title": "Code Guardrail: Restart AI Service"
+      }
     ]
   },
   "scripts": {
-    "vscode:prepublish": "npm run compile",
+    "vscode:prepublish": "npm run compile && npm run bundle:service",
+    "bundle:service": "node ./scripts/prepare-bundle.js",
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
-    "package": "npx @vscode/vsce package --no-dependencies --allow-package-secrets github"
+    "package": "npm run bundle:service && npx @vscode/vsce package --allow-package-secrets github"
   },
   "devDependencies": {
     "@types/node": "20.x",

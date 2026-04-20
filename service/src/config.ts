@@ -1,5 +1,6 @@
 import * as dotenv from 'dotenv';
 import * as path from 'path';
+import * as fs from 'fs';
 import { fileURLToPath } from 'url';
 import { ServiceConfig } from './types/index.js';
 import type { ProviderConfig } from './providers/base-provider.js';
@@ -7,6 +8,20 @@ import type { ProviderConfig } from './providers/base-provider.js';
 // ES module __dirname equivalent
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+const resolveGovernancePath = (): string => {
+  const explicitPath = process.env.GOVERNANCE_PATH;
+  if (explicitPath) {
+    return explicitPath;
+  }
+
+  const bundledPath = path.join(__dirname, '../governance');
+  if (fs.existsSync(bundledPath)) {
+    return bundledPath;
+  }
+
+  return path.join(__dirname, '../../governance');
+};
 
 // Load environment variables
 dotenv.config();
@@ -45,7 +60,7 @@ export const providerConfig: ProviderConfig = {
 
 export const config: ServiceConfig = {
   port: parseInt(process.env.PORT || '3000', 10),
-  governancePath: process.env.GOVERNANCE_PATH || path.join(__dirname, '../../governance'),
+  governancePath: resolveGovernancePath(),
   maxFileSize: parseInt(process.env.MAX_FILE_SIZE_MB || '5', 10) * 1024 * 1024,
   enableCaching: process.env.ENABLE_CACHING === 'true',
   providerConfig

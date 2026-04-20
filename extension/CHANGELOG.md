@@ -2,6 +2,19 @@
 
 All notable changes to the "Code Guardrail" extension will be documented in this file.
 
+## [0.8.1] - 2026-04-20
+
+### Fixed
+- Ship the backend service and its production dependencies inside the VSIX so users do not need to run a terminal setup step.
+- Validate the local Node.js runtime before starting the packaged backend to make startup failures clearer.
+- Resolve governance rules correctly from the packaged bundle so the release uses the real bundled policies.
+
+### Added
+- Activity bar entry and Guardrail control center for running scans, configuring providers, and managing rules without leaving VS Code.
+- Clearer Copilot-first model selection with optional Microsoft Foundry, OpenAI, and Anthropic provider configuration.
+
+---
+
 ## [0.1.0] - 2026-02-17
 
 ### 🎉 Initial Release - Hybrid Edition

@@ -1,9 +1,22 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
-import { spawn, ChildProcess } from 'child_process';
+import { spawn, spawnSync, ChildProcess } from 'child_process';
+
+type ProviderMode = 'auto' | 'copilot' | 'byok';
+type ByokProvider = 'openai' | 'anthropic' | 'azure-openai';
+
+interface StoredProviderConfig {
+    mode: ProviderMode;
+    provider?: ByokProvider;
+    model?: string;
+    endpoint?: string;
+    deployment?: string;
+}
 
 export class ServiceManager {
+    private static readonly providerConfigKey = 'guardrail.providerConfig';
+    private static readonly providerSecretKey = 'guardrail.providerApiKey';
     private serviceProcess: ChildProcess | null = null;
     private get servicePort(): number {
         return vscode.workspace.getConfiguration('codeGuardrail').get<number>('servicePort', 3000);
@@ -14,18 +27,212 @@ export class ServiceManager {
     private isServiceRunning = false;
     private startupAttempts = 0;
     private readonly maxStartupAttempts = 3;
+    private startupInProgress: Promise<boolean> | null = null;
+    private lastStartupError: string | null = null;
 
     constructor(private context: vscode.ExtensionContext) {}
+
+    getLastStartupError(): string | null {
+        return this.lastStartupError;
+    }
+
+    getProviderDisplayLabel(): string {
+        const storedConfig = this.getStoredProviderConfig();
+
+        if (storedConfig.mode === 'copilot') {
+            return 'GitHub Copilot';
+        }
+
+        if (storedConfig.mode === 'byok' && storedConfig.provider) {
+            return this.getExternalProviderLabel(storedConfig.provider);
+        }
+
+        if (storedConfig.provider) {
+            return `Copilot + ${this.getExternalProviderLabel(storedConfig.provider)} fallback`;
+        }
+
+        return 'GitHub Copilot (auto)';
+    }
+
+    async configureProvider(): Promise<boolean> {
+        const selected = await vscode.window.showQuickPick([
+            {
+                label: 'Microsoft Foundry / Azure OpenAI',
+                description: 'Save endpoint, deployment, and API key for an external Azure-hosted model',
+                value: 'azure-openai' as const
+            },
+            {
+                label: 'OpenAI',
+                description: 'Save an OpenAI API key as an optional external provider',
+                value: 'openai' as const
+            },
+            {
+                label: 'Anthropic',
+                description: 'Save an Anthropic API key as an optional external provider',
+                value: 'anthropic' as const
+            },
+            {
+                label: 'GitHub Copilot Default',
+                description: 'Prefer VS Code Copilot models and fall back to a saved external provider when available',
+                value: 'auto' as const
+            },
+            {
+                label: 'GitHub Copilot Only',
+                description: 'Force Guardrail to use GitHub Copilot only',
+                value: 'copilot' as const
+            },
+            {
+                label: 'Clear Saved External Provider',
+                description: 'Remove saved Foundry/OpenAI/Anthropic settings and API key',
+                value: 'clear' as const
+            }
+        ], {
+            placeHolder: 'Choose how Guardrail should select its AI provider'
+        });
+
+        if (!selected) {
+            return false;
+        }
+
+        if (selected.value === 'clear') {
+            await this.clearStoredProviderConfiguration();
+            vscode.window.showInformationMessage('Saved BYOK settings cleared.');
+            await this.stop();
+            return this.start();
+        }
+
+        if (selected.value === 'auto' || selected.value === 'copilot') {
+            const existing = this.getStoredProviderConfig();
+            await this.context.globalState.update(ServiceManager.providerConfigKey, {
+                ...existing,
+                mode: selected.value
+            } satisfies StoredProviderConfig);
+            vscode.window.showInformationMessage(`Guardrail provider mode set to ${selected.label}. Restarting service...`);
+            await this.stop();
+            return this.start();
+        }
+
+        const apiKey = await vscode.window.showInputBox({
+            prompt: `Enter your ${selected.label} API key`,
+            password: true,
+            ignoreFocusOut: true,
+            validateInput: value => value.trim().length === 0 ? 'API key is required.' : undefined
+        });
+
+        if (!apiKey) {
+            return false;
+        }
+
+        const model = await vscode.window.showInputBox({
+            prompt: `Optional model override for ${selected.label}`,
+            ignoreFocusOut: true,
+            value: selected.value === 'azure-openai' ? 'gpt-4o' : '',
+            placeHolder: selected.value === 'azure-openai' ? 'Example: gpt-4o or your Foundry deployment model' : 'Leave blank to use the provider default'
+        });
+
+        let endpoint: string | undefined;
+        let deployment: string | undefined;
+
+        if (selected.value === 'azure-openai') {
+            endpoint = await vscode.window.showInputBox({
+                prompt: 'Azure OpenAI / Foundry endpoint',
+                ignoreFocusOut: true,
+                placeHolder: 'https://your-resource.openai.azure.com',
+                validateInput: value => {
+                    const trimmed = value.trim();
+                    if (!trimmed) {
+                        return 'Endpoint is required.';
+                    }
+                    return /^https?:\/\//i.test(trimmed) ? undefined : 'Endpoint must start with http:// or https://';
+                }
+            });
+
+            if (!endpoint) {
+                return false;
+            }
+
+            deployment = await vscode.window.showInputBox({
+                prompt: 'Azure OpenAI deployment name',
+                ignoreFocusOut: true,
+                validateInput: value => value.trim().length === 0 ? 'Deployment name is required.' : undefined
+            });
+
+            if (!deployment) {
+                return false;
+            }
+        }
+
+        const modePick = await vscode.window.showQuickPick([
+            {
+                label: 'Use this provider by default',
+                description: 'Guardrail will start directly in BYOK mode',
+                value: 'byok' as const
+            },
+            {
+                label: 'Use as fallback after Copilot',
+                description: 'Guardrail will prefer Copilot when available',
+                value: 'auto' as const
+            }
+        ], {
+            placeHolder: 'Choose how Guardrail should use the saved key'
+        });
+
+        if (!modePick) {
+            return false;
+        }
+
+        const storedConfig: StoredProviderConfig = {
+            mode: modePick.value,
+            provider: selected.value,
+            model: model?.trim() || undefined,
+            endpoint: endpoint?.trim().replace(/\/+$/, '') || undefined,
+            deployment: deployment?.trim() || undefined
+        };
+
+        await this.context.globalState.update(ServiceManager.providerConfigKey, storedConfig);
+        await this.context.secrets.store(ServiceManager.providerSecretKey, apiKey.trim());
+
+        vscode.window.showInformationMessage(`${selected.label} credentials saved. Restarting Guardrail AI service...`);
+        await this.stop();
+        return this.start();
+    }
 
     /**
      * Start the backend service
      */
     async start(): Promise<boolean> {
+        if (this.startupInProgress) {
+            return this.startupInProgress;
+        }
+
+        this.lastStartupError = null;
+
+        this.startupInProgress = this.startInternal();
+        try {
+            return await this.startupInProgress;
+        } finally {
+            this.startupInProgress = null;
+        }
+    }
+
+    private async startInternal(): Promise<boolean> {
         // Check if service is already running
         if (await this.checkServiceHealth()) {
             console.log('✅ Service already running');
             this.isServiceRunning = true;
             return true;
+        }
+
+        const runtimeCheck = this.validateNodeRuntime();
+        if (!runtimeCheck.ok) {
+            const runtimeMessage = runtimeCheck.message || 'Guardrail AI could not validate the local Node.js runtime.';
+            this.lastStartupError = runtimeMessage;
+            vscode.window.showErrorMessage(runtimeMessage, 'Open Node.js Downloads').then(selection => {
+                if (selection === 'Open Node.js Downloads') {
+                    vscode.env.openExternal(vscode.Uri.parse('https://nodejs.org/en/download'));
+                }
+            });
+            return false;
         }
 
         // Find service directory (may trigger auto-extraction)
@@ -55,6 +262,7 @@ export class ServiceManager {
             this.serviceProcess.kill('SIGTERM');
             this.serviceProcess = null;
             this.isServiceRunning = false;
+            this.startupAttempts = 0;
             
             // Wait a bit for graceful shutdown
             await new Promise(resolve => setTimeout(resolve, 1000));
@@ -221,10 +429,17 @@ export class ServiceManager {
             this.copyRecursiveSync(bundledServicePath, targetPath);
             console.log(`✅ Service extracted to: ${targetPath}`);
 
-            // Install dependencies
-            console.log('📥 Installing service dependencies (one-time setup)...');
-            vscode.window.showInformationMessage('⚙️ Setting up Guardrail AI service (one-time operation)...');
-            
+            const packagedNodeModules = path.join(targetPath, 'node_modules', 'express');
+            if (fs.existsSync(packagedNodeModules)) {
+                console.log('✅ Using prebundled service dependencies');
+                vscode.window.showInformationMessage('✅ Guardrail AI service is packaged and ready.');
+                return true;
+            }
+
+            // Fallback for legacy bundles without node_modules
+            console.log('📥 Legacy bundle detected, installing service dependencies...');
+            vscode.window.showInformationMessage('⚙️ Finishing Guardrail AI service setup...');
+
             const installed = await this.installServiceDependencies(targetPath);
             if (installed) {
                 console.log('✅ Service setup complete!');
@@ -260,12 +475,11 @@ export class ServiceManager {
     private async installServiceDependencies(servicePath: string): Promise<boolean> {
         return new Promise((resolve) => {
             console.log(`📦 Running npm install in: ${servicePath}`);
-            
-            // Use 'npm' and shell:true to ensure npm is found via PATH
-            const installProcess = spawn('npm', ['install', '--production'], {
+
+            const installProcess = spawn(this.getNpmExecutable(), ['install', '--production'], {
                 cwd: servicePath,
                 stdio: ['ignore', 'pipe', 'pipe'],
-                shell: true // Required on Windows to find npm in PATH
+                shell: false
             });
 
             let output = '';
@@ -293,7 +507,8 @@ export class ServiceManager {
                     resolve(true);
                 } else {
                     console.error(`❌ npm install failed with code ${code}:`, output);
-                    vscode.window.showErrorMessage(`npm install failed. Try manually: cd ~/.guardrail-service && npm install`);
+                    this.lastStartupError = output.trim() || `npm install failed with code ${code}`;
+                    vscode.window.showErrorMessage('npm install failed while preparing Guardrail AI service.');
                     resolve(false);
                 }
             });
@@ -310,7 +525,11 @@ export class ServiceManager {
     /**
      * Start the service process
      */
-    private async startService(servicePath: string): Promise<boolean> {
+    private async startService(servicePath: string, isRetry = false): Promise<boolean> {
+        if (!isRetry) {
+            this.startupAttempts = 0;
+        }
+
         if (this.startupAttempts >= this.maxStartupAttempts) {
             vscode.window.showErrorMessage('Failed to start Guardrail service after multiple attempts. Using local mode.');
             return false;
@@ -318,37 +537,41 @@ export class ServiceManager {
 
         this.startupAttempts++;
 
-        return new Promise((resolve) => {
+        return new Promise(async (resolve) => {
             console.log('🚀 Starting Guardrail service...');
             
             const indexPath = path.join(servicePath, 'dist', 'index.js');
             console.log(`Service index path: ${indexPath}`);
             console.log(`Service path exists: ${fs.existsSync(indexPath)}`);
-            
-            // Use system Node.js (not VS Code's bundled one) - required for Node.js 22+ features
-            // Use 'node' without extension - shell will resolve it on both platforms
-            const nodeExecutable = 'node';
+
+            const nodeExecutable = this.getNodeExecutable();
             console.log(`Using node executable: ${nodeExecutable}`);
+
+            const serviceEnv = await this.getServiceEnvironment();
+            const errorBuffer: string[] = [];
+            let settled = false;
+            const settle = (value: boolean) => {
+                if (!settled) {
+                    settled = true;
+                    resolve(value);
+                }
+            };
             
             // Start the service
             this.serviceProcess = spawn(nodeExecutable, [indexPath], {
                 cwd: servicePath,
                 stdio: ['ignore', 'pipe', 'pipe'],
                 detached: false, // Keep as child process
-                shell: true, // Use shell to find system node
-                env: {
-                    ...process.env,
-                    NODE_ENV: 'production',
-                    PORT: this.servicePort.toString(),
-                    COPILOT_MODEL: vscode.workspace.getConfiguration('codeGuardrail').get<string>('model', 'gpt-4')
-                }
+                shell: false,
+                env: serviceEnv
             });
 
             // Handle spawn errors (e.g., node not found)
             this.serviceProcess.on('error', (err) => {
                 console.error(`❌ Failed to spawn service process: ${err.message}`);
+                this.lastStartupError = err.message;
                 vscode.window.showErrorMessage(`Failed to start service: ${err.message}. Is Node.js installed?`);
-                resolve(false);
+                settle(false);
             });
 
             // Handle stdout
@@ -359,8 +582,9 @@ export class ServiceManager {
                 // Check if service started successfully
                 if (output.includes('Server running on')) {
                     this.isServiceRunning = true;
+                    this.lastStartupError = null;
                     vscode.window.showInformationMessage('✅ Guardrail AI service started successfully!');
-                    resolve(true);
+                    settle(true);
                 }
             });
 
@@ -368,6 +592,10 @@ export class ServiceManager {
             this.serviceProcess.stderr?.on('data', (data) => {
                 const error = data.toString().trim();
                 console.error(`[Service stderr] ${error}`);
+                if (error) {
+                    errorBuffer.push(error);
+                    this.lastStartupError = errorBuffer.slice(-8).join('\n');
+                }
                 
                 // Check for critical Node.js errors
                 if (error.includes('ERR_UNKNOWN_BUILTIN_MODULE') || 
@@ -391,32 +619,143 @@ export class ServiceManager {
                     // Self-healing: try to restart the service up to maxStartupAttempts
                     if (this.startupAttempts < this.maxStartupAttempts) {
                         setTimeout(() => {
-                            this.startService(servicePath);
+                            this.startService(servicePath, true).then(settle);
                         }, 2000);
                     } else {
+                        if (!this.lastStartupError) {
+                            this.lastStartupError = errorBuffer.slice(-8).join('\n') || `Service exited with code ${code}`;
+                        }
                         vscode.window.showErrorMessage('Guardrail service failed to restart. Falling back to local scanning.');
-                        resolve(false);
+                        settle(false);
                     }
                 } else {
-                    resolve(false);
+                    settle(false);
                 }
             });
 
-            // Timeout check - if service doesn't start in 10 seconds, assume failure
+            // Timeout check - Copilot startup can take a while on first boot
             setTimeout(async () => {
-                if (!this.isServiceRunning) {
+                if (!this.isServiceRunning && !settled) {
                     const isHealthy = await this.checkServiceHealth();
                     if (isHealthy) {
                         this.isServiceRunning = true;
+                        this.lastStartupError = null;
                         vscode.window.showInformationMessage('✅ Guardrail AI service connected!');
-                        resolve(true);
+                        settle(true);
                     } else {
+                        if (!this.lastStartupError) {
+                            this.lastStartupError = errorBuffer.slice(-8).join('\n') || 'Service did not become healthy before the startup timeout.';
+                        }
                         console.warn('⚠️ Service did not start in time, using local mode');
-                        this.stop();
-                        resolve(false);
+                        await this.stop();
+                        settle(false);
                     }
                 }
-            }, 10000);
+            }, 20000);
         });
+    }
+
+    private getNodeExecutable(): string {
+        return process.platform === 'win32' ? 'node.exe' : 'node';
+    }
+
+    private getNpmExecutable(): string {
+        return process.platform === 'win32' ? 'npm.cmd' : 'npm';
+    }
+
+    private validateNodeRuntime(): { ok: boolean; message?: string } {
+        const nodeExecutable = this.getNodeExecutable();
+        const versionResult = spawnSync(nodeExecutable, ['--version'], {
+            encoding: 'utf8',
+            shell: false
+        });
+
+        if (versionResult.error || versionResult.status !== 0) {
+            return {
+                ok: false,
+                message: 'Guardrail AI requires a system Node.js installation (v24 or newer) to run the packaged backend service.'
+            };
+        }
+
+        const versionText = (versionResult.stdout || '').trim();
+        const versionMatch = versionText.match(/^v?(\d+)\.(\d+)\.(\d+)/);
+        if (!versionMatch) {
+            return {
+                ok: false,
+                message: `Guardrail AI could not determine your Node.js version from "${versionText}".`
+            };
+        }
+
+        const major = parseInt(versionMatch[1], 10);
+        if (major < 24) {
+            return {
+                ok: false,
+                message: `Guardrail AI requires Node.js 24 or newer because the bundled GitHub Copilot SDK depends on it. Detected ${versionText}.`
+            };
+        }
+
+        return { ok: true };
+    }
+
+    private getStoredProviderConfig(): StoredProviderConfig {
+        return this.context.globalState.get<StoredProviderConfig>(ServiceManager.providerConfigKey, { mode: 'auto' });
+    }
+
+    private getExternalProviderLabel(provider: ByokProvider): string {
+        switch (provider) {
+            case 'azure-openai':
+                return 'Microsoft Foundry / Azure OpenAI';
+            case 'anthropic':
+                return 'Anthropic';
+            case 'openai':
+                return 'OpenAI';
+        }
+    }
+
+    private async getServiceEnvironment(): Promise<NodeJS.ProcessEnv> {
+        const storedConfig = this.getStoredProviderConfig();
+        const apiKey = await this.context.secrets.get(ServiceManager.providerSecretKey);
+        const env: NodeJS.ProcessEnv = {
+            ...process.env,
+            NODE_ENV: 'production',
+            PORT: this.servicePort.toString(),
+            COPILOT_MODEL: vscode.workspace.getConfiguration('codeGuardrail').get<string>('model', 'gpt-4'),
+            PROVIDER_MODE: storedConfig.mode || 'auto'
+        };
+
+        if (!storedConfig.provider || !apiKey) {
+            return env;
+        }
+
+        if (storedConfig.model) {
+            env.BYOK_MODEL = storedConfig.model;
+        }
+
+        if (storedConfig.provider === 'azure-openai') {
+            env.AZURE_OPENAI_KEY = apiKey;
+            if (storedConfig.endpoint) {
+                env.AZURE_OPENAI_ENDPOINT = storedConfig.endpoint;
+            }
+            if (storedConfig.deployment) {
+                env.AZURE_OPENAI_DEPLOYMENT = storedConfig.deployment;
+            }
+            return env;
+        }
+
+        if (storedConfig.provider === 'openai') {
+            env.OPENAI_API_KEY = apiKey;
+            return env;
+        }
+
+        if (storedConfig.provider === 'anthropic') {
+            env.ANTHROPIC_API_KEY = apiKey;
+        }
+
+        return env;
+    }
+
+    private async clearStoredProviderConfiguration(): Promise<void> {
+        await this.context.globalState.update(ServiceManager.providerConfigKey, { mode: 'auto' } satisfies StoredProviderConfig);
+        await this.context.secrets.delete(ServiceManager.providerSecretKey);
     }
 }
