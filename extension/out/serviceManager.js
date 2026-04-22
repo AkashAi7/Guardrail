@@ -374,21 +374,30 @@ class ServiceManager {
     async getServicePath() {
         const homeServicePath = path.join(require('os').homedir(), '.guardrail-service');
         const devServicePath = path.join(this.context.extensionPath, '..', 'service');
-        // Priority 1: Check extracted service in home directory (has express installed)
+        const bundledServicePath = path.join(this.context.extensionPath, 'bundled-service');
+        // Priority 1: Packaged installs should run the bundled service directly so updates
+        // always use the code shipped in the current VSIX instead of a stale extracted copy.
+        const bundledIndexPath = path.join(bundledServicePath, 'dist', 'index.js');
+        const bundledExpressPath = path.join(bundledServicePath, 'node_modules', 'express');
+        if (fs.existsSync(bundledIndexPath) && fs.existsSync(bundledExpressPath)) {
+            console.log(`✅ Found bundled service at: ${bundledServicePath}`);
+            return bundledServicePath;
+        }
+        // Priority 2: Check extracted service in home directory (legacy fallback)
         const homeIndexPath = path.join(homeServicePath, 'dist', 'index.js');
         const homeExpressPath = path.join(homeServicePath, 'node_modules', 'express');
         if (fs.existsSync(homeIndexPath) && fs.existsSync(homeExpressPath)) {
             console.log(`✅ Found installed service at: ${homeServicePath}`);
             return homeServicePath;
         }
-        // Priority 2: Development mode - service folder next to extension (has express installed)
+        // Priority 3: Development mode - service folder next to extension (has express installed)
         const devIndexPath = path.join(devServicePath, 'dist', 'index.js');
         const devExpressPath = path.join(devServicePath, 'node_modules', 'express');
         if (fs.existsSync(devIndexPath) && fs.existsSync(devExpressPath)) {
             console.log(`✅ Found dev service at: ${devServicePath}`);
             return devServicePath;
         }
-        // Priority 3: Extract bundled service to home directory and install deps
+        // Priority 4: Extract bundled service to home directory and install deps
         console.log('⚙️ Service not found with dependencies, extracting bundled service...');
         const extracted = await this.extractBundledService();
         if (extracted) {

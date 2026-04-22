@@ -2,6 +2,12 @@
 
 All notable changes to the "Code Guardrail" extension will be documented in this file.
 
+## [0.8.4] - 2026-04-22
+
+### Fixed
+- Prefer the bundled backend shipped inside the installed VSIX over a stale extracted copy in `~/.guardrail-service`, so extension updates actually run the current service code.
+- Prevent installed users from getting stuck on an older backend after upgrading the extension, which could otherwise surface as repeated analysis timeouts.
+
 ## [0.8.3] - 2026-04-20
 
 ### Fixed
