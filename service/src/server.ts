@@ -4,6 +4,8 @@ import { HybridGuardrailAgent } from './agent-hybrid.js';
 import { AnalysisRequest } from './types/index.js';
 import config from './config.js';
 
+const ANALYZE_BATCH_CONCURRENCY = 2;
+
 export class GuardrailServer {
   private app: express.Application;
   private agent: HybridGuardrailAgent;
@@ -169,10 +171,15 @@ export class GuardrailServer {
           });
         }
 
-        // Analyze all files in parallel
-        const results = await Promise.all(
-          requests.map(request => this.agent.analyzeCode(request))
-        );
+        // Analyze files in bounded waves to avoid overwhelming the active model/session.
+        const results = [];
+        for (let batchStart = 0; batchStart < requests.length; batchStart += ANALYZE_BATCH_CONCURRENCY) {
+          const requestBatch = requests.slice(batchStart, batchStart + ANALYZE_BATCH_CONCURRENCY);
+          const batchResults = await Promise.all(
+            requestBatch.map(request => this.agent.analyzeCode(request))
+          );
+          results.push(...batchResults);
+        }
 
         res.json({
           success: true,

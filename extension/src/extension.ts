@@ -79,6 +79,73 @@ async function restartServiceWithPrompt(): Promise<boolean> {
     return attemptServiceStart(true);
 }
 
+function getBatchAnalysisTimeout(documents: vscode.TextDocument[]): number {
+    const totalCharacters = documents.reduce((sum, document) => sum + document.getText().length, 0);
+    return Math.max(180000, documents.length * 45000, Math.ceil(totalCharacters / 4000) * 15000);
+}
+
+async function analyzeDocumentsWithFallback(
+    activeServiceManager: ServiceManager,
+    documents: vscode.TextDocument[]
+): Promise<{ results: any[]; failedFiles: string[] }> {
+    const requestBatch = async (batchDocuments: vscode.TextDocument[]): Promise<any[]> => {
+        const response = await activeServiceManager.makeRequest('/analyze-batch', {
+            method: 'POST',
+            body: {
+                files: batchDocuments.map(document => ({
+                    content: document.getText(),
+                    filePath: document.fileName,
+                    language: document.languageId
+                }))
+            },
+            timeout: getBatchAnalysisTimeout(batchDocuments)
+        });
+
+        return response.success && Array.isArray(response.results) ? response.results : [];
+    };
+
+    try {
+        return {
+            results: await requestBatch(documents),
+            failedFiles: []
+        };
+    } catch (error: any) {
+        if (documents.length === 1) {
+            throw error;
+        }
+
+        console.warn(`Batch analysis failed for ${documents.length} files, retrying individually: ${error.message}`);
+
+        const results: any[] = [];
+        const failedFiles: string[] = [];
+
+        for (const document of documents) {
+            try {
+                const [result] = await requestBatch([document]);
+                results.push(result ?? {
+                    filePath: document.fileName,
+                    findings: [],
+                    summary: { totalIssues: 0, high: 0, medium: 0, low: 0, info: 0 },
+                    analysisTime: 0,
+                    error: 'No result returned by analysis service'
+                });
+            } catch (documentError: any) {
+                failedFiles.push(path.basename(document.fileName));
+                console.error(`Failed to analyze ${document.fileName}:`, documentError);
+                results.push({
+                    filePath: document.fileName,
+                    findings: [],
+                    summary: { totalIssues: 0, high: 0, medium: 0, low: 0, info: 0 },
+                    analysisTime: 0,
+                    error: documentError.message
+                });
+            }
+        }
+
+        return { results, failedFiles };
+    }
+}
+
 export function activate(context: vscode.ExtensionContext) {
     console.log('Code Guardrail activating...');
     
@@ -198,6 +265,7 @@ export function activate(context: vscode.ExtensionContext) {
         }, async (progress, token) => {
             let analyzed = 0;
             let totalIssues = 0;
+            let failedFiles = 0;
 
             const batchSize = 8;
 
@@ -218,39 +286,29 @@ export function activate(context: vscode.ExtensionContext) {
                         fileBatch.map(fileUri => vscode.workspace.openTextDocument(fileUri))
                     );
 
-                    const response = await activeServiceManager.makeRequest('/analyze-batch', {
-                        method: 'POST',
-                        body: {
-                            files: documents.map(document => ({
-                                content: document.getText(),
-                                filePath: document.fileName,
-                                language: document.languageId
-                            }))
-                        },
-                        timeout: Math.max(180000, documents.length * 45000)
-                    });
+                    const batchResponse = await analyzeDocumentsWithFallback(activeServiceManager, documents);
+                    failedFiles += batchResponse.failedFiles.length;
 
-                    if (response.success && Array.isArray(response.results)) {
-                        for (let index = 0; index < documents.length; index++) {
-                            const document = documents[index];
-                            const result = response.results[index];
-                            const findings = mapBackendFindings(document.getText(), result?.findings || []);
-                            applyFindingsToDocument(document, findings);
-                            totalIssues += findings.length;
-                        }
+                    for (let index = 0; index < documents.length; index++) {
+                        const document = documents[index];
+                        const result = batchResponse.results[index];
+                        const findings = mapBackendFindings(document.getText(), result?.findings || []);
+                        applyFindingsToDocument(document, findings);
+                        totalIssues += findings.length;
                     }
                 } catch (error) {
                     console.error(`Failed to analyze file batch starting at ${batchStart}:`, error);
+                    failedFiles += fileBatch.length;
                 }
 
                 analyzed += fileBatch.length;
             }
             
-            progress.report({ message: `Complete: ${analyzed} files, ${totalIssues} issues` });
+            progress.report({ message: `Complete: ${analyzed} files, ${totalIssues} issues${failedFiles > 0 ? `, ${failedFiles} failed` : ''}` });
             
             // Show summary
             vscode.window.showInformationMessage(
-                `\ud83e\udd16 Project scan complete! Analyzed ${analyzed} files, found ${totalIssues} issues.`,
+                `🤖 Project scan complete! Analyzed ${analyzed} files, found ${totalIssues} issues${failedFiles > 0 ? `, ${failedFiles} failed` : ''}.`,
                 'View Issues'
             ).then(selection => {
                 if (selection === 'View Issues') {

@@ -2,6 +2,13 @@
 
 All notable changes to the "Code Guardrail" extension will be documented in this file.
 
+## [0.8.5] - 2026-04-22
+
+### Fixed
+- Stop `/analyze-batch` from overloading the active AI model by throttling backend batch concurrency.
+- Retry timed-out project scan batches one file at a time instead of failing the whole scan at `0/N` files.
+- Report partial scan failures in the final summary so timeouts are visible instead of looking like a dead extension.
+
 ## [0.8.4] - 2026-04-22
 
 ### Fixed
